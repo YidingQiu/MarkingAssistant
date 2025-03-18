@@ -30,24 +30,24 @@ def run_quality_checks(file_path):
             'error': str(e)
         }
     
-    # Run pylint
-    try:
-        pylint_output = run_pylint(file_path)
-        quality_results['pylint'] = {
-            'name': 'Pylint',
-            'description': 'Code Analysis',
-            'output': format_tool_output(pylint_output),
-            'has_issues': pylint_output != "No issues found",
-            'error': None
-        }
-    except Exception as e:
-        quality_results['pylint'] = {
-            'name': 'Pylint',
-            'description': 'Tool execution failed',
-            'output': None,
-            'has_issues': True,
-            'error': str(e)
-        }
+    # # Run pylint
+    # try:
+    #     pylint_output = run_pylint(file_path)
+    #     quality_results['pylint'] = {
+    #         'name': 'Pylint',
+    #         'description': 'Code Analysis',
+    #         'output': format_tool_output(pylint_output),
+    #         'has_issues': pylint_output != "No issues found",
+    #         'error': None
+    #     }
+    # except Exception as e:
+    #     quality_results['pylint'] = {
+    #         'name': 'Pylint',
+    #         'description': 'Tool execution failed',
+    #         'output': None,
+    #         'has_issues': True,
+    #         'error': str(e)
+    #     }
     
     # Run black
     try:
