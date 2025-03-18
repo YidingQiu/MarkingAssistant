@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from assignment_marker.moodle_loader import get_student_list
 from assignment_marker.student_code_extractor import extract_code_from_files
+from code_testing.quality_runner_main import run_quality_checks
 import io
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -125,6 +126,9 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 # Run tests with the student's solution path
                 test_results = run_pytest(test_file, temp_file)
                 
+                # Run code quality checks
+                quality_results = run_quality_checks(temp_file)
+                
                 # Save results
                 result_filename = f"{student_name}_{student_id}_Lab{lab_number}_Problem{problem_number}_results.json"
                 result_path = os.path.join(results_dir, result_filename)
@@ -134,35 +138,54 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 passed_tests = len([t for t in test_results['test_details'] if 'PASSED' in t])
                 failed_tests = len([t for t in test_results['test_details'] if 'FAILED' in t])
                 
-                # Create the final results object
+                # Create the final results object with a clearer structure
                 results_obj = {
-                    'student_name': student_name,
-                    'student_id': student_id,
-                    'lab_number': lab_number,
-                    'problem_number': problem_number,
-                    'timestamp': datetime.now().isoformat(),
-                    'results': {
-                        'passed': test_results['passed'],
-                        'exit_code': test_results['exit_code'],
-                        'total_tests': total_tests,
-                        'passed_tests': passed_tests,
-                        'failed_tests': failed_tests,
-                        'test_details': test_results['test_details'],
-                        'full_output': test_results['test_output'],
+                    'metadata': {
+                        'student_name': student_name,
+                        'student_id': student_id,
+                        'lab_number': lab_number,
+                        'problem_number': problem_number,
+                        'timestamp': datetime.now().isoformat(),
+                        'solution_path': file_path
                     },
-                    'solution_path': file_path
+                    'test_results': {
+                        'summary': {
+                            'passed': test_results['passed'],
+                            'exit_code': test_results['exit_code'],
+                            'total_tests': total_tests,
+                            'passed_tests': passed_tests,
+                            'failed_tests': failed_tests
+                        },
+                        'details': {
+                            'test_cases': test_results['test_details'],
+                            'full_output': test_results['test_output']
+                        }
+                    },
+                    'code_quality': {
+                        'summary': {
+                            'has_quality_issues': any(
+                                quality_results[tool]['has_issues'] 
+                                for tool in quality_results
+                            ) if quality_results else True,
+                            'tools_run': list(quality_results.keys()) if quality_results else []
+                        },
+                        'tool_results': quality_results if quality_results else {}
+                    }
                 }
                 
                 # Add error output only if there are errors
                 if test_results['test_error']:
-                    results_obj['results']['error_output'] = test_results['test_error']
+                    results_obj['test_results']['details']['error_output'] = test_results['test_error']
                 
                 # Write results to file with proper formatting
                 with open(result_path, 'w', encoding='utf-8') as f:
                     json.dump(results_obj, f, indent=4, ensure_ascii=False)
                 
-                # Clean up
-                os.remove(temp_file)
+                # Clean up - moved after all operations are complete
+                try:
+                    os.remove(temp_file)
+                except Exception as e:
+                    print(f"Warning: Could not remove temporary file {temp_file}: {str(e)}")
                 
             except Exception as e:
                 print(f"Error processing file {file_path}: {str(e)}")
