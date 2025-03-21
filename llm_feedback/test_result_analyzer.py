@@ -167,7 +167,7 @@ class TestResultAnalyzer:
         """Load and parse the results JSON file."""
         try:
             logger.info("Loading results JSON file")
-            with open(self.results_json_path, 'r') as f:
+            with open(self.results_json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             logger.info("Parsing metadata")
@@ -188,6 +188,24 @@ class TestResultAnalyzer:
             
             logger.info(f"Successfully loaded {len(self.problems)} problems")
             
+        except UnicodeDecodeError as e:
+            logger.error(f"Error reading file (encoding issue): {str(e)}")
+            logger.info("Attempting to read with different encoding...")
+            try:
+                # Try reading with a more permissive encoding
+                with open(self.results_json_path, 'r', encoding='utf-8-sig') as f:
+                    data = json.load(f)
+                logger.info("Successfully read file with utf-8-sig encoding")
+                # Continue with the same processing...
+                self.metadata = SubmissionMetadata.from_dict(data['metadata'])
+                self.problems = {}
+                for problem_id, problem_data in data['problems'].items():
+                    self.problems[problem_id] = ProblemResult.from_dict(problem_data)
+                logger.info(f"Successfully loaded {len(self.problems)} problems")
+            except Exception as e2:
+                logger.error(f"Error loading results with alternative encoding: {str(e2)}")
+                logger.exception("Detailed error traceback:")
+                raise
         except Exception as e:
             logger.error(f"Error loading results: {str(e)}")
             logger.exception("Detailed error traceback:")
