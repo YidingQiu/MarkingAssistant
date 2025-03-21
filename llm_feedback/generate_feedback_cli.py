@@ -7,10 +7,14 @@ from pathlib import Path
 from typing import Optional
 from .feedback_generator import generate_feedback, FeedbackFormat
 
-# Configure logging
+# Configure logging with more detailed format
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG,  # Set to DEBUG to see all log messages
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # Log to stdout
+        logging.FileHandler('feedback_generation.log')  # Also log to file
+    ]
 )
 logger = logging.getLogger(__name__)
 

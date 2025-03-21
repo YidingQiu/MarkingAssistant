@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -157,21 +160,74 @@ class TestResultAnalyzer:
         self.results_json_path = results_json_path
         self.metadata = None
         self.problems = {}
+        logger.info(f"Initializing TestResultAnalyzer with results file: {results_json_path}")
         self._load_results()
 
     def _load_results(self) -> None:
         """Load and parse the results JSON file."""
-        with open(self.results_json_path, 'r') as f:
-            data = json.load(f)
+        try:
+            logger.info("Loading results JSON file")
+            with open(self.results_json_path, 'r') as f:
+                data = json.load(f)
             
-        self.metadata = SubmissionMetadata.from_dict(data['metadata'])
-        self.problems = {
-            problem_id: ProblemResult.from_dict(problem_data)
-            for problem_id, problem_data in data['problems'].items()
-        }
+            logger.info("Parsing metadata")
+            self.metadata = SubmissionMetadata.from_dict(data['metadata'])
+            logger.debug(f"Metadata loaded: {self.metadata.to_dict()}")
+            
+            logger.info("Parsing problem results")
+            self.problems = {}
+            for problem_id, problem_data in data['problems'].items():
+                logger.debug(f"Processing problem {problem_id}")
+                try:
+                    self.problems[problem_id] = ProblemResult.from_dict(problem_data)
+                    logger.debug(f"Successfully processed problem {problem_id}")
+                except Exception as e:
+                    logger.error(f"Error processing problem {problem_id}: {str(e)}")
+                    logger.exception("Detailed error traceback:")
+                    raise
+            
+            logger.info(f"Successfully loaded {len(self.problems)} problems")
+            
+        except Exception as e:
+            logger.error(f"Error loading results: {str(e)}")
+            logger.exception("Detailed error traceback:")
+            raise
+
+    def get_problem_analysis(self, problem_id: str) -> Dict:
+        """Get detailed analysis for a specific problem."""
+        logger.info(f"Getting analysis for problem {problem_id}")
+        
+        if problem_id not in self.problems:
+            error_msg = f"Problem {problem_id} not found in results"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+            
+        problem = self.problems[problem_id]
+        logger.debug(f"Problem data type: {type(problem)}")
+        
+        try:
+            analysis = {
+                'success_rate': problem.test_results['summary'].success_rate,
+                'passed_all_tests': problem.test_results['summary'].passed,
+                'test_cases': problem.test_results['details'].test_cases,
+                'has_quality_issues': problem.code_quality.has_quality_issues,
+                'quality_tools': {
+                    tool: result.output
+                    for tool, result in problem.code_quality.tool_results.items()
+                    if result.has_issues
+                }
+            }
+            logger.debug(f"Analysis result: {analysis}")
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing problem {problem_id}: {str(e)}")
+            logger.exception("Detailed error traceback:")
+            raise
 
     def get_overall_success_rate(self) -> float:
         """Calculate the overall success rate across all problems."""
+        logger.info("Calculating overall success rate")
         total_passed = 0
         total_tests = 0
         
@@ -180,10 +236,13 @@ class TestResultAnalyzer:
             total_passed += summary.passed_tests
             total_tests += summary.total_tests
             
-        return (total_passed / total_tests * 100) if total_tests > 0 else 0.0
+        success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0.0
+        logger.debug(f"Overall success rate: {success_rate}%")
+        return success_rate
 
     def get_code_quality_summary(self) -> Dict[str, int]:
         """Get a summary of code quality issues across all problems."""
+        logger.info("Getting code quality summary")
         issues_count = {'total': 0}
         
         for problem in self.problems.values():
@@ -193,52 +252,36 @@ class TestResultAnalyzer:
                 for tool, result in quality.tool_results.items():
                     if result.has_issues:
                         issues_count[tool] = issues_count.get(tool, 0) + 1
-                        
+        
+        logger.debug(f"Code quality summary: {issues_count}")
         return issues_count
-
-    def get_problem_analysis(self, problem_id: str) -> Dict:
-        """Get detailed analysis for a specific problem."""
-        if problem_id not in self.problems:
-            raise ValueError(f"Problem {problem_id} not found in results")
-            
-        problem = self.problems[problem_id]
-        return {
-            'success_rate': problem.test_results['summary'].success_rate,
-            'passed_all_tests': problem.test_results['summary'].passed,
-            'test_cases': problem.test_results['details'].test_cases,
-            'has_quality_issues': problem.code_quality.has_quality_issues,
-            'quality_tools': {
-                tool: result.output
-                for tool, result in problem.code_quality.tool_results.items()
-                if result.has_issues
-            }
-        }
-
-    def get_failed_test_cases(self, problem_id: str) -> List[str]:
-        """Get list of failed test cases for a specific problem."""
-        if problem_id not in self.problems:
-            raise ValueError(f"Problem {problem_id} not found in results")
-            
-        test_cases = self.problems[problem_id].test_results['details'].test_cases
-        return [test for test in test_cases if 'FAILED' in test]
 
     def get_submission_summary(self) -> Dict:
         """Get a high-level summary of the entire submission."""
-        return {
-            'student': {
-                'name': self.metadata.student_name,
-                'id': self.metadata.student_id,
-                'lab': self.metadata.lab_number,
-                'submission_time': self.metadata.timestamp
-            },
-            'overall_success_rate': self.get_overall_success_rate(),
-            'problems_attempted': len(self.problems),
-            'problems_with_quality_issues': len([
-                p for p in self.problems.values()
-                if p.code_quality.has_quality_issues
-            ]),
-            'problems_passing_all_tests': len([
-                p for p in self.problems.values()
-                if p.test_results['summary'].passed
-            ])
-        }
+        logger.info("Getting submission summary")
+        try:
+            summary = {
+                'student': {
+                    'name': self.metadata.student_name,
+                    'id': self.metadata.student_id,
+                    'lab': self.metadata.lab_number,
+                    'submission_time': self.metadata.timestamp
+                },
+                'overall_success_rate': self.get_overall_success_rate(),
+                'problems_attempted': len(self.problems),
+                'problems_with_quality_issues': len([
+                    p for p in self.problems.values()
+                    if p.code_quality.has_quality_issues
+                ]),
+                'problems_passing_all_tests': len([
+                    p for p in self.problems.values()
+                    if p.test_results['summary'].passed
+                ])
+            }
+            logger.debug(f"Submission summary: {summary}")
+            return summary
+            
+        except Exception as e:
+            logger.error("Error generating submission summary")
+            logger.exception("Detailed error traceback:")
+            raise

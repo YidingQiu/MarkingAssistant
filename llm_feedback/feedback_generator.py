@@ -117,24 +117,44 @@ class FeedbackGenerator:
             QuestionFeedback object containing the feedback
         """
         try:
+            logger.info(f"Starting feedback generation for problem {problem_id}")
+            
             # Get problem analysis
+            logger.info(f"Getting problem analysis for {problem_id}")
             problem_analysis = self.test_analyzer.get_problem_analysis(problem_id)
+            logger.debug(f"Problem analysis: {problem_analysis}")
             
             # Read source code
-            source_code = self._read_source_code(
-                self.test_analyzer.problems[problem_id].solution_path
-            )
+            logger.info(f"Reading source code for problem {problem_id}")
+            source_path = self.test_analyzer.problems[problem_id].solution_path
+            logger.debug(f"Source code path: {source_path}")
+            source_code = self._read_source_code(source_path)
+            
+            # Get code quality data
+            logger.info(f"Getting code quality data for problem {problem_id}")
+            code_quality = self.test_analyzer.problems[problem_id].code_quality
+            logger.debug(f"Code quality object type: {type(code_quality)}")
+            code_quality_dict = code_quality.to_dict()
+            logger.debug(f"Code quality dict: {code_quality_dict}")
+            
+            # Get student info
+            logger.info("Getting student info")
+            student_info = self.test_analyzer.get_submission_summary()["student"]
+            logger.debug(f"Student info: {student_info}")
             
             # Prepare data for LLM
+            logger.info("Preparing analysis data for LLM")
             analysis_data = {
                 "problem_id": problem_id,
                 "test_results": problem_analysis,
                 "source_code": source_code,
-                "code_quality": self.test_analyzer.problems[problem_id].code_quality,
-                "student_info": self.test_analyzer.get_submission_summary()["student"]
+                "code_quality": code_quality_dict,
+                "student_info": student_info
             }
+            logger.debug(f"Analysis data prepared: {analysis_data}")
             
             # Generate feedback using LLM
+            logger.info("Generating feedback using LLM")
             system_prompt = f"""You are an expert programming instructor providing detailed feedback for a student's code submission.
             Generate feedback in {self.feedback_format.upper()} format.
             Focus on:
@@ -150,14 +170,17 @@ class FeedbackGenerator:
             )
             
             if not llm_response.success:
+                logger.error(f"LLM analysis failed: {llm_response.error}")
                 raise Exception(f"LLM analysis failed: {llm_response.error}")
             
+            logger.info("LLM analysis successful, formatting feedback")
             # Format feedback
             formatted_feedback = self._format_feedback(
                 llm_response.content,
                 self.feedback_format
             )
             
+            logger.info(f"Successfully generated feedback for problem {problem_id}")
             return QuestionFeedback(
                 problem_id=problem_id,
                 feedback_content=formatted_feedback,
@@ -167,6 +190,7 @@ class FeedbackGenerator:
             
         except Exception as e:
             logger.error(f"Error generating feedback for problem {problem_id}: {str(e)}")
+            logger.exception("Detailed error traceback:")
             return QuestionFeedback(
                 problem_id=problem_id,
                 feedback_content="",
