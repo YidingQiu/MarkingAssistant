@@ -59,12 +59,11 @@ def run_pytest(test_file, student_solution_path):
 
 def get_problem_number(file_name):
     """Extract problem number from various file naming formats."""
-    # Try to find a number after "Problem" or "Problem_" in the filename
-    match = re.search(r'Problem[_\s]*(\d+[a-b]?)', file_name, re.IGNORECASE)
+    # Try to find a number followed by optional letter after "Problem" or "Problem_" in the filename
+    match = re.search(r'Problem[_\s]*(\d+[a-zA-Z]?)', file_name, re.IGNORECASE)
     if match:
-        # Extract just the number, removing any letters
-        problem_number = ''.join(filter(str.isdigit, match.group(1)))
-        return problem_number
+        # Return the full match including any letter suffix
+        return match.group(1)
     return None
 
 def run_tests_for_student(student_info, submission_folder, rubric_dir, results_dir):
@@ -87,6 +86,17 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
     if not student_folder:
         print(f"Could not find submission folder for student {student_name} ({student_id})")
         return
+    
+    # Initialize the combined results object
+    combined_results = {
+        'metadata': {
+            'student_name': student_name,
+            'student_id': student_id,
+            'lab_number': lab_number,
+            'timestamp': datetime.now().isoformat(),
+        },
+        'problems': {}
+    }
     
     # Find all Python files in student's submission
     python_files = []
@@ -129,25 +139,14 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 # Run code quality checks
                 quality_results = run_quality_checks(temp_file)
                 
-                # Save results
-                result_filename = f"{student_name}_{student_id}_Lab{lab_number}_Problem{problem_number}_results.json"
-                result_path = os.path.join(results_dir, result_filename)
-                
                 # Calculate test statistics
                 total_tests = len(test_results['test_details'])
                 passed_tests = len([t for t in test_results['test_details'] if 'PASSED' in t])
                 failed_tests = len([t for t in test_results['test_details'] if 'FAILED' in t])
                 
-                # Create the final results object with a clearer structure
-                results_obj = {
-                    'metadata': {
-                        'student_name': student_name,
-                        'student_id': student_id,
-                        'lab_number': lab_number,
-                        'problem_number': problem_number,
-                        'timestamp': datetime.now().isoformat(),
-                        'solution_path': file_path
-                    },
+                # Add this problem's results to the combined results
+                problem_results = {
+                    'solution_path': file_path,
                     'test_results': {
                         'summary': {
                             'passed': test_results['passed'],
@@ -175,13 +174,12 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 
                 # Add error output only if there are errors
                 if test_results['test_error']:
-                    results_obj['test_results']['details']['error_output'] = test_results['test_error']
+                    problem_results['test_results']['details']['error_output'] = test_results['test_error']
                 
-                # Write results to file with proper formatting
-                with open(result_path, 'w', encoding='utf-8') as f:
-                    json.dump(results_obj, f, indent=4, ensure_ascii=False)
+                # Add to combined results
+                combined_results['problems'][problem_number] = problem_results
                 
-                # Clean up - moved after all operations are complete
+                # Clean up temporary file
                 try:
                     os.remove(temp_file)
                 except Exception as e:
@@ -190,6 +188,13 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
             except Exception as e:
                 print(f"Error processing file {file_path}: {str(e)}")
                 continue
+    
+    # Save combined results
+    if combined_results['problems']:
+        result_filename = f"{student_name}_{student_id}_Lab{lab_number}_results.json"
+        result_path = os.path.join(results_dir, result_filename)
+        with open(result_path, 'w', encoding='utf-8') as f:
+            json.dump(combined_results, f, indent=4, ensure_ascii=False)
 
 def main():
     # Configuration
