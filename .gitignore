@@ -1,6 +1,9 @@
 # Student submission folder
 submissions/*
 
+# feedback folder
+feedback/*
+
 # Tests
 # rubric/test_cases/*
 rubric/test_results/*

@@ -17,6 +17,16 @@ class TestSummary:
         summary = data.copy()
         summary['success_rate'] = (summary['passed_tests'] / summary['total_tests']) * 100
         return cls(**summary)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'passed': self.passed,
+            'exit_code': self.exit_code,
+            'total_tests': self.total_tests,
+            'passed_tests': self.passed_tests,
+            'failed_tests': self.failed_tests,
+            'success_rate': self.success_rate
+        }
 
 
 @dataclass
@@ -27,6 +37,12 @@ class TestDetails:
     @classmethod
     def from_dict(cls, data: Dict) -> 'TestDetails':
         return cls(**data)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'test_cases': self.test_cases,
+            'full_output': self.full_output
+        }
 
 
 @dataclass
@@ -40,6 +56,15 @@ class CodeQualityToolResult:
     @classmethod
     def from_dict(cls, data: Dict) -> 'CodeQualityToolResult':
         return cls(**data)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'name': self.name,
+            'description': self.description,
+            'output': self.output,
+            'has_issues': self.has_issues,
+            'warning': self.warning
+        }
 
 
 @dataclass
@@ -50,15 +75,22 @@ class CodeQualitySummary:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'CodeQualitySummary':
-        summary_data = {
-            'has_quality_issues': data['has_quality_issues'],
-            'tools_run': data['tools_run'],
+        """Create CodeQualitySummary from dictionary data."""
+        return cls(
+            has_quality_issues=data['has_quality_issues'],
+            tools_run=data['tools_run'],
+            tool_results={}  # Will be set by ProblemResult
+        )
+    
+    def to_dict(self) -> Dict:
+        return {
+            'has_quality_issues': self.has_quality_issues,
+            'tools_run': self.tools_run,
             'tool_results': {
-                tool: CodeQualityToolResult.from_dict(result)
-                for tool, result in data['tool_results'].items()
+                tool: result.to_dict() 
+                for tool, result in self.tool_results.items()
             }
         }
-        return cls(**summary_data)
 
 
 @dataclass
@@ -69,14 +101,34 @@ class ProblemResult:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'ProblemResult':
+        # Create code quality summary from the nested structure
+        code_quality = CodeQualitySummary.from_dict(data['code_quality']['summary'])
+        # Add tool results separately since they're at the same level as summary
+        code_quality.tool_results = {
+            tool: CodeQualityToolResult.from_dict(result)
+            for tool, result in data['code_quality']['tool_results'].items()
+        }
+        
         return cls(
             solution_path=data['solution_path'],
             test_results={
                 'summary': TestSummary.from_dict(data['test_results']['summary']),
                 'details': TestDetails.from_dict(data['test_results']['details'])
             },
-            code_quality=CodeQualitySummary.from_dict(data['code_quality'])
+            code_quality=code_quality
         )
+    
+    def to_dict(self) -> Dict:
+        return {
+            'solution_path': self.solution_path,
+            'test_results': {
+                'summary': self.test_results['summary'].to_dict(),
+                'details': self.test_results['details'].to_dict()
+            },
+            'code_quality': {
+                'summary': self.code_quality.to_dict()
+            }
+        }
 
 
 @dataclass
@@ -89,6 +141,14 @@ class SubmissionMetadata:
     @classmethod
     def from_dict(cls, data: Dict) -> 'SubmissionMetadata':
         return cls(**data)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'student_name': self.student_name,
+            'student_id': self.student_id,
+            'lab_number': self.lab_number,
+            'timestamp': self.timestamp
+        }
 
 
 class TestResultAnalyzer:
