@@ -193,53 +193,43 @@ class FeedbackGenerator:
         Args:
             feedback: Dictionary mapping problem IDs to their feedback
         """
-        # Create student-specific directory
+        # Get student info for filename
         student_info = self.test_analyzer.get_submission_summary()["student"]
-        student_dir = self.feedback_dir / f"{student_info['id']}_{student_info['lab']}"
-        student_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save individual problem feedback
-        for problem_id, prob_feedback in feedback.items():
-            if not prob_feedback.success:
-                logger.error(f"Skipping saving feedback for problem {problem_id} due to generation error")
-                continue
-                
-            file_extension = {
-                "html": ".html",
-                "markdown": ".md",
-                "text": ".txt"
-            }[prob_feedback.format]
-            
-            feedback_file = student_dir / f"problem_{problem_id}{file_extension}"
-            
-            try:
-                with open(feedback_file, 'w', encoding='utf-8') as f:
-                    f.write(prob_feedback.feedback_content)
-                logger.info(f"Saved feedback for problem {problem_id} to {feedback_file}")
-            except Exception as e:
-                logger.error(f"Error saving feedback for problem {problem_id}: {str(e)}")
+        # Create feedback filename with same pattern as input
+        feedback_file = self.feedback_dir / f"{student_info['name']}_{student_info['id']}_Lab{student_info['lab']}_feedback.{self.feedback_format}"
         
-        # Generate and save summary feedback
         try:
+            # Generate summary feedback
             summary_data = {
                 "student_info": student_info,
                 "overall_results": self.test_analyzer.get_submission_summary(),
-                "individual_feedback_files": [f.name for f in student_dir.glob(f"*{file_extension}")]
+                "problem_feedback": {}
             }
             
+            # Add individual problem feedback
+            for problem_id, prob_feedback in feedback.items():
+                if not prob_feedback.success:
+                    logger.error(f"Skipping problem {problem_id} due to generation error")
+                    continue
+                summary_data["problem_feedback"][problem_id] = prob_feedback.feedback_content
+            
+            # Generate summary using LLM
             summary_response = self.llm.custom_analysis(
                 data=summary_data,
                 system_prompt=f"""Generate a summary of the student's overall performance in {self.feedback_format.upper()} format.
-                Include links to individual problem feedback files and highlight key areas of strength and improvement."""
+                Include all individual problem feedback and highlight key areas of strength and improvement."""
             )
             
             if summary_response.success:
-                summary_file = student_dir / f"summary{file_extension}"
-                with open(summary_file, 'w', encoding='utf-8') as f:
+                with open(feedback_file, 'w', encoding='utf-8') as f:
                     f.write(self._format_feedback(summary_response.content, self.feedback_format))
-                logger.info(f"Saved feedback summary to {summary_file}")
+                logger.info(f"Saved feedback to {feedback_file}")
+            else:
+                logger.error(f"Failed to generate summary feedback: {summary_response.error}")
+                
         except Exception as e:
-            logger.error(f"Error generating/saving feedback summary: {str(e)}")
+            logger.error(f"Error generating/saving feedback: {str(e)}")
 
 
 def generate_feedback(results_json_path: str,
