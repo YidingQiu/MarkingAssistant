@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Literal
 import json
 import os
+import yaml
 from dataclasses import dataclass
 import logging
 from .test_result_analyzer import TestResultAnalyzer
@@ -13,6 +14,19 @@ logger = logging.getLogger(__name__)
 
 # Supported feedback formats
 FeedbackFormat = Literal["html", "markdown", "text"]
+
+# Load prompts from YAML
+def load_prompts() -> Dict:
+    """Load prompts from YAML file."""
+    prompts_path = Path("rubric/feedback_prompt.yaml")
+    if not prompts_path.exists():
+        raise FileNotFoundError(f"Prompts file not found: {prompts_path}")
+    
+    with open(prompts_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+# Load prompts once at module level
+PROMPTS = load_prompts()
 
 
 @dataclass
@@ -159,14 +173,7 @@ class FeedbackGenerator:
             
             # Generate feedback using LLM
             logger.info("Generating feedback using LLM")
-            system_prompt = f"""You are an expert programming instructor providing detailed feedback for a student's code submission.
-            Generate feedback in {self.feedback_format.upper()} format.
-            Focus on:
-            1. Test results analysis and specific test cases
-            2. Code quality and style issues
-            3. Specific suggestions for improvement
-            4. Positive aspects of the implementation
-            """
+            system_prompt = PROMPTS['feedback_generation']['system_prompt'].format(format=self.feedback_format.upper())
             
             llm_response = self.llm.custom_analysis(
                 data=analysis_data,
@@ -245,8 +252,7 @@ class FeedbackGenerator:
             # Generate summary using LLM
             summary_response = self.llm.custom_analysis(
                 data=summary_data,
-                system_prompt=f"""Generate a summary of the student's overall performance in {self.feedback_format.upper()} format.
-                Include all individual problem feedback and highlight key areas of strength and improvement."""
+                system_prompt=PROMPTS['summary_generation']['system_prompt'].format(format=self.feedback_format.upper())
             )
             
             if summary_response.success:

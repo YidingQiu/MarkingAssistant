@@ -6,6 +6,8 @@ import logging
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from pathlib import Path
+import yaml
 
 # Load environment variables
 load_dotenv()
@@ -13,6 +15,19 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load prompts from YAML
+def load_prompts() -> Dict:
+    """Load prompts from YAML file."""
+    prompts_path = Path("rubric/feedback_prompt.yaml")
+    if not prompts_path.exists():
+        raise FileNotFoundError(f"Prompts file not found: {prompts_path}")
+    
+    with open(prompts_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+# Load prompts once at module level
+PROMPTS = load_prompts()
 
 @dataclass
 class LLMResponse:
@@ -110,15 +125,12 @@ class LLMDeployment:
         Returns:
             LLMResponse with analysis
         """
-        system_prompt = """You are an expert programming instructor analyzing student code test results.
-        Provide detailed insights about test performance, focusing on patterns in failures and potential misconceptions."""
-        
         content = json.dumps(test_results, indent=2)
         if rubric_criteria:
             content += "\n\nRubric Criteria:\n" + json.dumps(rubric_criteria, indent=2)
             
         messages = [{"role": "user", "content": content}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['test_analysis']['system_prompt'])
 
     def generate_feedback(self, 
                         test_analysis: Dict, 
@@ -134,9 +146,6 @@ class LLMDeployment:
         Returns:
             LLMResponse with formatted feedback
         """
-        system_prompt = """You are an expert programming instructor providing feedback to a student.
-        Focus on being constructive, specific, and actionable. Include both strengths and areas for improvement."""
-        
         content = {
             "test_analysis": test_analysis,
             "code_quality": code_quality,
@@ -144,7 +153,7 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['feedback_generation']['system_prompt'])
 
     def calculate_score(self, 
                        test_results: Dict,
@@ -162,9 +171,6 @@ class LLMDeployment:
         Returns:
             LLMResponse with calculated score and justification
         """
-        system_prompt = """You are an expert programming instructor calculating a student's score.
-        Provide a detailed breakdown of points and clear justification for the score based on the rubric criteria."""
-        
         content = {
             "test_results": test_results,
             "code_quality": code_quality,
@@ -173,7 +179,7 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['score_calculation']['system_prompt'])
 
     def analyze_code_quality(self, quality_report: Dict) -> LLMResponse:
         """Analyze code quality report and provide insights.
@@ -184,11 +190,8 @@ class LLMDeployment:
         Returns:
             LLMResponse with analysis of code quality
         """
-        system_prompt = """You are an expert programming instructor analyzing code quality.
-        Focus on patterns in style issues, potential refactoring opportunities, and best practices."""
-        
         messages = [{"role": "user", "content": json.dumps(quality_report, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['code_quality']['system_prompt'])
 
     def evaluate_rubric_criteria(self, 
                                submission_data: Dict,
