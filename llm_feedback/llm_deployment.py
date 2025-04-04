@@ -3,11 +3,16 @@ import json
 import ollama
 from dataclasses import dataclass
 import logging
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class LLMResponse:
@@ -19,16 +24,30 @@ class LLMResponse:
 
 
 class LLMDeployment:
-    """Interface for LLM interactions using Ollama."""
+    """Interface for LLM interactions using Ollama and OpenAI."""
     
     def __init__(self, model_name: str = "qwq"):
         """Initialize LLM deployment.
         
         Args:
-            model_name: Name of the Ollama model to use (default: "qwq")
+            model_name: Name of the model to use (default: "qwq")
+                      Can be an Ollama model or "openai-gpt-4o" for OpenAI
         """
         self.model_name = model_name
-        self._verify_model()
+        self.use_openai = model_name.startswith("openai-")
+        
+        if self.use_openai:
+            if not os.getenv("OPENAI_API_KEY"):
+                raise RuntimeError("OpenAI API key not found in environment variables")
+            try:
+                # Initialize OpenAI client with default configuration
+                self.client = OpenAI()
+                logger.info(f"Using OpenAI model: {model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+                raise RuntimeError(f"Failed to initialize OpenAI client: {str(e)}")
+        else:
+            self._verify_model()
 
     def _verify_model(self) -> None:
         """Verify that the specified model is available in Ollama."""
@@ -52,14 +71,26 @@ class LLMDeployment:
         try:
             if system_prompt:
                 messages.insert(0, {"role": "system", "content": system_prompt})
-                
-            response = ollama.chat(model=self.model_name, messages=messages)
             
-            return LLMResponse(
-                content=response["message"]["content"],
-                raw_response=response,
-                success=True
-            )
+            if self.use_openai:
+                # Convert messages to OpenAI format
+                openai_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=openai_messages
+                )
+                return LLMResponse(
+                    content=response.choices[0].message.content,
+                    raw_response=response.to_dict(),
+                    success=True
+                )
+            else:
+                response = ollama.chat(model=self.model_name, messages=messages)
+                return LLMResponse(
+                    content=response["message"]["content"],
+                    raw_response=response,
+                    success=True
+                )
         except Exception as e:
             logger.error(f"Error in LLM chat: {str(e)}")
             return LLMResponse(
