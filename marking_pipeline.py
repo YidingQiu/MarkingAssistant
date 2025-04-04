@@ -56,8 +56,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--model',
         type=str,
-        default='qwq',
-        help='Name of the LLM model to use for feedback generation (default: qwq)'
+        default='openai-gpt-4o',
+        help='Name of the LLM model to use for feedback generation (default: openai-gpt-4o)'
     )
     
     parser.add_argument(
@@ -194,7 +194,7 @@ def process_group(args: argparse.Namespace) -> None:
         return
     
     # Filter students for the specified group
-    group_students = [s for s in students if f"{group_type} {group_number}" in s['lab_folder']]
+    group_students = [s for s in students if f"{group_type}{group_number}" in s['lab_folder'].replace(' ', '')]
     if not group_students:
         logger.error(f"No students found for {args.group_name}")
         return
