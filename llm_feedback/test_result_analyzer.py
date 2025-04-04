@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 import json
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +113,11 @@ class ProblemResult:
             for tool, result in data['code_quality']['tool_results'].items()
         }
         
+        # Convert solution path to absolute path
+        solution_path = str(Path(data['solution_path']).resolve())
+        
         return cls(
-            solution_path=data['solution_path'],
+            solution_path=solution_path,
             test_results={
                 'summary': TestSummary.from_dict(data['test_results']['summary']),
                 'details': TestDetails.from_dict(data['test_results']['details'])

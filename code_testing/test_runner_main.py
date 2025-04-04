@@ -17,9 +17,9 @@ def get_lab_and_problem_info(lab_folder):
     lab_number = lab_info.replace('Lab ', '')
     return lab_number
 
-def find_test_cases(rubric_dir, problem_number):
+def find_test_cases(rubric_dir, problem_number, lab_number):
     """Find test cases for a specific problem in the rubric directory."""
-    test_file = os.path.join(rubric_dir, 'test_cases', f'test_problem{problem_number}.py')
+    test_file = os.path.join(rubric_dir, 'test_cases', f'Lab{lab_number}', f'test_problem{problem_number}.py')
     if os.path.exists(test_file):
         return test_file
     return None
@@ -114,7 +114,7 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
         
     # Extract code from student's files
     for file_path, problem_number in python_files:
-        test_file = find_test_cases(rubric_dir, problem_number)
+        test_file = find_test_cases(rubric_dir, problem_number, lab_number)
         
         if test_file:
             try:
@@ -189,10 +189,14 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 print(f"Error processing file {file_path}: {str(e)}")
                 continue
     
-    # Save combined results
+    # Save combined results in lab-specific subdirectory
     if combined_results['problems']:
+        # Create lab-specific results directory
+        lab_results_dir = os.path.join(results_dir, f'Lab{lab_number}')
+        os.makedirs(lab_results_dir, exist_ok=True)
+        
         result_filename = f"{student_name}_{student_id}_Lab{lab_number}_results.json"
-        result_path = os.path.join(results_dir, result_filename)
+        result_path = os.path.join(lab_results_dir, result_filename)
         with open(result_path, 'w', encoding='utf-8') as f:
             json.dump(combined_results, f, indent=4, ensure_ascii=False)
 

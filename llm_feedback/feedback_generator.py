@@ -49,7 +49,9 @@ class FeedbackGenerator:
         self.test_analyzer = TestResultAnalyzer(str(results_json_path))
         self.llm = LLMDeployment(model_name)
         
-        # Create feedback directory if it doesn't exist
+        # Create lab-specific feedback directory
+        lab_number = self.test_analyzer.metadata.lab_number
+        self.feedback_dir = self.feedback_dir / f'Lab{lab_number}'
         self.feedback_dir.mkdir(parents=True, exist_ok=True)
 
     def _read_source_code(self, file_path: str) -> Optional[str]:
@@ -62,7 +64,9 @@ class FeedbackGenerator:
             Source code content or None if file not found
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            # Convert to Path object and resolve to handle any relative paths
+            path = Path(file_path).resolve()
+            with open(path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             logger.error(f"Error reading source code from {file_path}: {str(e)}")
@@ -260,14 +264,15 @@ def generate_feedback(results_json_path: str,
                      feedback_dir: str = "feedback",
                      model_name: str = "qwq",
                      feedback_format: FeedbackFormat = "html") -> None:
-    """Convenience function to generate feedback for a submission.
+    """Generate feedback for a test results file.
     
     Args:
         results_json_path: Path to the test results JSON file
         feedback_dir: Directory to store generated feedback
         model_name: Name of the LLM model to use
-        feedback_format: Format of the generated feedback
+        feedback_format: Format of the generated feedback (html/markdown/text)
     """
+    # Initialize feedback generator
     generator = FeedbackGenerator(
         results_json_path=results_json_path,
         feedback_dir=feedback_dir,
@@ -275,5 +280,8 @@ def generate_feedback(results_json_path: str,
         feedback_format=feedback_format
     )
     
+    # Generate feedback for all problems
     feedback = generator.generate_all_feedback()
+    
+    # Save feedback
     generator.save_feedback(feedback)
