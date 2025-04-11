@@ -2,12 +2,24 @@ import os
 import pytest
 import json
 import re
+import logging
 from datetime import datetime
 from assignment_marker.moodle_loader import get_student_list
 from assignment_marker.student_code_extractor import extract_code_from_files
 from code_testing.quality_runner_main import run_quality_checks
 import io
 from contextlib import redirect_stdout, redirect_stderr
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('test_runner.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def get_lab_and_problem_info(lab_folder):
     """Extract lab number from the submission folder name."""
@@ -59,11 +71,33 @@ def run_pytest(test_file, student_solution_path):
 
 def get_problem_number(file_name):
     """Extract problem number from various file naming formats."""
-    # Try to find a number followed by optional letter after "Problem" or "Problem_" in the filename
-    match = re.search(r'Problem[_\s]*(\d+[a-zA-Z]?)', file_name, re.IGNORECASE)
+    # Remove extension
+    base_name = os.path.splitext(file_name)[0]
+
+    # Try common patterns like Problem1, problem_1, q1, task1, etc.
+    # Looks for (keyword)(separator)(number)(optional letter)
+    # Keywords: problem, q, question, task
+    # Separator: underscore, space, or none
+    # Number: one or more digits
+    # Letter: optional single letter (a-z)
+    match = re.search(r'(?:problem|q|question|task)[_\s]?(\d+[a-zA-Z]?)\b', base_name, re.IGNORECASE)
     if match:
-        # Return the full match including any letter suffix
         return match.group(1)
+
+    # If no keyword pattern, try finding a number (potentially with a letter) at the end of the filename
+    # e.g., exercise1a.py -> 1a
+    match = re.search(r'(\d+[a-zA-Z]?)$', base_name, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # If still no match, try finding a number at the beginning
+    # e.g., 1_solution.py -> 1
+    match = re.search(r'^(\d+)', base_name)
+    if match:
+        return match.group(1)
+
+    # Add a log message if no number is found
+    logger.warning(f"Could not extract problem number from filename: {file_name}")
     return None
 
 def run_tests_for_student(student_info, submission_folder, rubric_dir, results_dir):
@@ -84,7 +118,7 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
             break
     
     if not student_folder:
-        print(f"Could not find submission folder for student {student_name} ({student_id})")
+        logger.error(f"Could not find submission folder for student {student_name} ({student_id})")
         return
     
     # Initialize the combined results object
@@ -109,7 +143,7 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                     python_files.append((os.path.join(root, file), problem_number))
     
     if not python_files:
-        print(f"No valid Python files found for student {student_name} ({student_id})")
+        logger.warning(f"No valid Python files found for student {student_name} ({student_id})")
         return
         
     # Extract code from student's files
@@ -122,7 +156,7 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 student_code = extract_code_from_files([file_path])
                 
                 if not student_code:
-                    print(f"Could not read file {file_path}")
+                    logger.error(f"Could not read file {file_path}")
                     continue
                 
                 # Create temporary file with student's code
@@ -183,17 +217,18 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, results_d
                 try:
                     os.remove(temp_file)
                 except Exception as e:
-                    print(f"Warning: Could not remove temporary file {temp_file}: {str(e)}")
+                    logger.warning(f"Could not remove temporary file {temp_file}: {str(e)}")
                 
             except Exception as e:
-                print(f"Error processing file {file_path}: {str(e)}")
+                logger.error(f"Error processing file {file_path}: {str(e)}")
                 continue
     
     # Save combined results in lab-specific subdirectory
     if combined_results['problems']:
-        # Create lab-specific results directory
+        # Create lab-specific results directory - ensure we don't create nested Lab directories
         lab_results_dir = os.path.join(results_dir, f'Lab{lab_number}')
-        os.makedirs(lab_results_dir, exist_ok=True)
+        if not os.path.exists(lab_results_dir):
+            os.makedirs(lab_results_dir)
         
         result_filename = f"{student_name}_{student_id}_Lab{lab_number}_results.json"
         result_path = os.path.join(lab_results_dir, result_filename)
@@ -214,7 +249,8 @@ def main():
     
     # Process each student's submission
     for student in students:
-        print(f"Processing submission for {student['name']} ({student['id']}) in {student['lab_folder']}")
+        logger.info(f"Processing submission for {student['name']} ({student['id']}) in {student['lab_folder']}")
+        # Pass the base results directory without any lab-specific subdirectory
         run_tests_for_student(student, submission_folder, rubric_dir, results_dir)
 
 if __name__ == '__main__':

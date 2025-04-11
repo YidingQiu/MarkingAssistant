@@ -142,7 +142,7 @@ def setup_directories(group_type: str, group_number: str) -> dict:
         'submissions': base_dir / 'submissions',
         'rubric': base_dir / 'rubric',
         'test_cases': base_dir / 'rubric' / 'test_cases' / group_key,
-        'test_results': base_dir / 'rubric' / 'test_results' / group_key,
+        'test_results': base_dir / 'rubric' / 'test_results',
         'feedback': base_dir / 'feedback' / group_key
     }
     
@@ -259,6 +259,15 @@ def process_group(args: argparse.Namespace) -> None:
         except Exception as e:
             logger.error(f"Error processing student {student['name']}: {str(e)}")
             logger.exception("Detailed error traceback:")
+
+def read_submission_files(submission_dir: str) -> list:
+    """Read all Python and Jupyter notebook files from a submission directory."""
+    files = []
+    for root, _, filenames in os.walk(submission_dir):
+        for filename in filenames:
+            if filename.endswith('.py') or filename.endswith('.ipynb'):
+                files.append(os.path.join(root, filename))
+    return files
 
 def main() -> int:
     """Main entry point for the marking pipeline."""
