@@ -55,8 +55,7 @@ class LLMDeployment:
             if not os.getenv("OPENAI_API_KEY"):
                 raise RuntimeError("OpenAI API key not found in environment variables")
             try:
-                # Initialize OpenAI client with default configuration
-                self.client = OpenAI()
+                self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
                 logger.info(f"Using OpenAI model: {model_name}")
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {str(e)}")
