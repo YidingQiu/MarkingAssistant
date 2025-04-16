@@ -64,8 +64,8 @@ def parse_args() -> argparse.Namespace:
         '--feedback-format',
         type=str,
         choices=['html', 'markdown', 'text'],
-        default='html',
-        help='Format of the generated feedback (default: html)'
+        default='markdown',
+        help='Format of the generated feedback (default: markdown)'
     )
     
     parser.add_argument(
@@ -142,8 +142,8 @@ def setup_directories(group_type: str, group_number: str) -> dict:
         'submissions': base_dir / 'submissions',
         'rubric': base_dir / 'rubric',
         'test_cases': base_dir / 'rubric' / 'test_cases' / group_key,
-        'test_results': base_dir / 'rubric' / 'test_results',
-        'feedback': base_dir / 'feedback' / group_key
+        'test_results': base_dir / 'rubric' / 'test_results' / group_key,
+        'feedback': base_dir / 'feedback' / group_key  # TODO: Fix this path
     }
     
     # Create directories if they don't exist
