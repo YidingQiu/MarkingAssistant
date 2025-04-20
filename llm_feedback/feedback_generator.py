@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Literal
 import json
 import os
+import yaml
 from dataclasses import dataclass
 import logging
 from .test_result_analyzer import TestResultAnalyzer
@@ -13,6 +14,19 @@ logger = logging.getLogger(__name__)
 
 # Supported feedback formats
 FeedbackFormat = Literal["html", "markdown", "text"]
+
+# Load prompts from YAML
+def load_prompts() -> Dict:
+    """Load prompts from YAML file."""
+    prompts_path = Path("rubric/feedback_prompt.yaml")
+    if not prompts_path.exists():
+        raise FileNotFoundError(f"Prompts file not found: {prompts_path}")
+    
+    with open(prompts_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+# Load prompts once at module level
+PROMPTS = load_prompts()
 
 
 @dataclass
@@ -49,7 +63,9 @@ class FeedbackGenerator:
         self.test_analyzer = TestResultAnalyzer(str(results_json_path))
         self.llm = LLMDeployment(model_name)
         
-        # Create feedback directory if it doesn't exist
+        # Create lab-specific feedback directory
+        lab_number = self.test_analyzer.metadata.lab_number
+        self.feedback_dir = self.feedback_dir / f'Lab{lab_number}'
         self.feedback_dir.mkdir(parents=True, exist_ok=True)
 
     def _read_source_code(self, file_path: str) -> Optional[str]:
@@ -62,7 +78,9 @@ class FeedbackGenerator:
             Source code content or None if file not found
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            # Convert to Path object and resolve to handle any relative paths
+            path = Path(file_path).resolve()
+            with open(path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             logger.error(f"Error reading source code from {file_path}: {str(e)}")
@@ -155,14 +173,7 @@ class FeedbackGenerator:
             
             # Generate feedback using LLM
             logger.info("Generating feedback using LLM")
-            system_prompt = f"""You are an expert programming instructor providing detailed feedback for a student's code submission.
-            Generate feedback in {self.feedback_format.upper()} format.
-            Focus on:
-            1. Test results analysis and specific test cases
-            2. Code quality and style issues
-            3. Specific suggestions for improvement
-            4. Positive aspects of the implementation
-            """
+            system_prompt = PROMPTS['feedback_generation']['system_prompt'].format(format=self.feedback_format.upper())
             
             llm_response = self.llm.custom_analysis(
                 data=analysis_data,
@@ -241,8 +252,7 @@ class FeedbackGenerator:
             # Generate summary using LLM
             summary_response = self.llm.custom_analysis(
                 data=summary_data,
-                system_prompt=f"""Generate a summary of the student's overall performance in {self.feedback_format.upper()} format.
-                Include all individual problem feedback and highlight key areas of strength and improvement."""
+                system_prompt=PROMPTS['summary_generation']['system_prompt'].format(format=self.feedback_format.upper())
             )
             
             if summary_response.success:
@@ -260,14 +270,15 @@ def generate_feedback(results_json_path: str,
                      feedback_dir: str = "feedback",
                      model_name: str = "qwq",
                      feedback_format: FeedbackFormat = "html") -> None:
-    """Convenience function to generate feedback for a submission.
+    """Generate feedback for a test results file.
     
     Args:
         results_json_path: Path to the test results JSON file
         feedback_dir: Directory to store generated feedback
         model_name: Name of the LLM model to use
-        feedback_format: Format of the generated feedback
+        feedback_format: Format of the generated feedback (html/markdown/text)
     """
+    # Initialize feedback generator
     generator = FeedbackGenerator(
         results_json_path=results_json_path,
         feedback_dir=feedback_dir,
@@ -275,5 +286,8 @@ def generate_feedback(results_json_path: str,
         feedback_format=feedback_format
     )
     
+    # Generate feedback for all problems
     feedback = generator.generate_all_feedback()
+    
+    # Save feedback
     generator.save_feedback(feedback)

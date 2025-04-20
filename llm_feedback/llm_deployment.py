@@ -3,11 +3,31 @@ import json
 import ollama
 from dataclasses import dataclass
 import logging
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from pathlib import Path
+import yaml
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load prompts from YAML
+def load_prompts() -> Dict:
+    """Load prompts from YAML file."""
+    prompts_path = Path("rubric/feedback_prompt.yaml")
+    if not prompts_path.exists():
+        raise FileNotFoundError(f"Prompts file not found: {prompts_path}")
+    
+    with open(prompts_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+# Load prompts once at module level
+PROMPTS = load_prompts()
 
 @dataclass
 class LLMResponse:
@@ -19,16 +39,29 @@ class LLMResponse:
 
 
 class LLMDeployment:
-    """Interface for LLM interactions using Ollama."""
+    """Interface for LLM interactions using Ollama and OpenAI."""
     
     def __init__(self, model_name: str = "qwq"):
         """Initialize LLM deployment.
         
         Args:
-            model_name: Name of the Ollama model to use (default: "qwq")
+            model_name: Name of the model to use (default: "qwq")
+                      Can be an Ollama model or "openai-gpt-4o" for OpenAI
         """
         self.model_name = model_name
-        self._verify_model()
+        self.use_openai = model_name.startswith("openai-")
+        
+        if self.use_openai:
+            if not os.getenv("OPENAI_API_KEY"):
+                raise RuntimeError("OpenAI API key not found in environment variables")
+            try:
+                self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                logger.info(f"Using OpenAI model: {model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+                raise RuntimeError(f"Failed to initialize OpenAI client: {str(e)}")
+        else:
+            self._verify_model()
 
     def _verify_model(self) -> None:
         """Verify that the specified model is available in Ollama."""
@@ -52,14 +85,26 @@ class LLMDeployment:
         try:
             if system_prompt:
                 messages.insert(0, {"role": "system", "content": system_prompt})
-                
-            response = ollama.chat(model=self.model_name, messages=messages)
             
-            return LLMResponse(
-                content=response["message"]["content"],
-                raw_response=response,
-                success=True
-            )
+            if self.use_openai:
+                # Convert messages to OpenAI format
+                openai_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
+                response = self.client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=openai_messages
+                )
+                return LLMResponse(
+                    content=response.choices[0].message.content,
+                    raw_response=response.to_dict(),
+                    success=True
+                )
+            else:
+                response = ollama.chat(model=self.model_name, messages=messages)
+                return LLMResponse(
+                    content=response["message"]["content"],
+                    raw_response=response,
+                    success=True
+                )
         except Exception as e:
             logger.error(f"Error in LLM chat: {str(e)}")
             return LLMResponse(
@@ -79,15 +124,12 @@ class LLMDeployment:
         Returns:
             LLMResponse with analysis
         """
-        system_prompt = """You are an expert programming instructor analyzing student code test results.
-        Provide detailed insights about test performance, focusing on patterns in failures and potential misconceptions."""
-        
         content = json.dumps(test_results, indent=2)
         if rubric_criteria:
             content += "\n\nRubric Criteria:\n" + json.dumps(rubric_criteria, indent=2)
             
         messages = [{"role": "user", "content": content}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['test_analysis']['system_prompt'])
 
     def generate_feedback(self, 
                         test_analysis: Dict, 
@@ -103,9 +145,6 @@ class LLMDeployment:
         Returns:
             LLMResponse with formatted feedback
         """
-        system_prompt = """You are an expert programming instructor providing feedback to a student.
-        Focus on being constructive, specific, and actionable. Include both strengths and areas for improvement."""
-        
         content = {
             "test_analysis": test_analysis,
             "code_quality": code_quality,
@@ -113,7 +152,7 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['feedback_generation']['system_prompt'])
 
     def calculate_score(self, 
                        test_results: Dict,
@@ -131,9 +170,6 @@ class LLMDeployment:
         Returns:
             LLMResponse with calculated score and justification
         """
-        system_prompt = """You are an expert programming instructor calculating a student's score.
-        Provide a detailed breakdown of points and clear justification for the score based on the rubric criteria."""
-        
         content = {
             "test_results": test_results,
             "code_quality": code_quality,
@@ -142,7 +178,7 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['score_calculation']['system_prompt'])
 
     def analyze_code_quality(self, quality_report: Dict) -> LLMResponse:
         """Analyze code quality report and provide insights.
@@ -153,11 +189,8 @@ class LLMDeployment:
         Returns:
             LLMResponse with analysis of code quality
         """
-        system_prompt = """You are an expert programming instructor analyzing code quality.
-        Focus on patterns in style issues, potential refactoring opportunities, and best practices."""
-        
         messages = [{"role": "user", "content": json.dumps(quality_report, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, PROMPTS['code_quality']['system_prompt'])
 
     def evaluate_rubric_criteria(self, 
                                submission_data: Dict,

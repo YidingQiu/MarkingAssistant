@@ -244,6 +244,69 @@ graph TD
    - Browser automation for Moodle interaction
    - Session management and authentication
 
+## Usage Guide
+
+### Running the Marking Pipeline
+
+The marking pipeline can be run using the following command:
+
+```bash
+python marking_pipeline.py --group-name <group_name> [options]
+```
+
+#### Required Arguments:
+- `--group-name`: Name of the group to process (e.g., Lab1, Ass2)
+  - Must start with either "Lab" or "Ass" followed by a number
+
+#### Optional Arguments:
+- `--submissions-dir`: Path to submissions directory (default: 'submissions')
+- `--model`: Name of the LLM model to use for feedback generation (default: 'openai-gpt-4o')
+- `--feedback-format`: Format of the generated feedback (choices: html, markdown, text; default: markdown)
+- `--log-level`: Set the logging level (choices: DEBUG, INFO, WARNING, ERROR, CRITICAL; default: INFO)
+- `--log-file`: Path to log file (default: marking_pipeline.log)
+- `--skip-feedback`: Skip feedback generation and only run tests
+- `--skip-tests`: Skip test running and only generate feedback
+- `--rubric-file`: Path to the rubric YAML file (default: 'rubric/marking_rubric.yaml')
+
+#### Example Usage:
+
+1. Basic usage for a lab assignment:
+```bash
+python marking_pipeline.py --group-name Lab1
+```
+
+2. Process an assignment with custom directories:
+```bash
+python marking_pipeline.py --group-name Ass2 --submissions-dir "path/to/submissions" --rubric-file "path/to/rubric.yaml"
+```
+
+3. Skip feedback generation and only run tests:
+```bash
+python marking_pipeline.py --group-name Lab3 --skip-feedback
+```
+
+4. Use a different LLM model and feedback format:
+```bash
+python marking_pipeline.py --group-name Ass1 --model llama --feedback-format markdown
+```
+
+#### Directory Structure:
+The pipeline expects the following directory structure:
+```
+.
+├── submissions/          # Student submissions
+├── rubric/              # Assessment rubrics
+│   ├── test_cases/      # Test cases for each group
+│   └── test_results/    # Test results for each group
+├── feedback/            # Generated feedback
+└── marking_pipeline.log # Log file
+```
+
+#### Output:
+- Test results are stored in `rubric/test_results/<group_name>/`
+- Feedback is generated in `feedback/<group_name>/`
+- Detailed logs are written to `marking_pipeline.log`
+
 ## Planned Development Phases
 
 1. **Phase 1**: Core modules development

@@ -59,8 +59,8 @@ def parse_args() -> argparse.Namespace:
         '--format',
         type=str,
         choices=['html', 'markdown', 'text'],
-        default='html',
-        help='Format of the generated feedback (default: html)'
+        default='markdown',
+        help='Format of the generated feedback (default: markdown)'
     )
     
     args = parser.parse_args()
