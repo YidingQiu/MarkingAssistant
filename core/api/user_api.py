@@ -1,52 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-
-from core.models import User
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel import Session
+from core.models.user import User
+from core.schemas.user_schema import UserCreateRequest
+from core.services import user_service
 from core.configs.database import get_db
 
-router = APIRouter(
-    prefix="/users",
-    tags=["users"],
-    responses={404: {"description": "Not found"}},
-)
+router = APIRouter(prefix="/users", tags=["users"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+@router.post("/", response_model=User)
+def create_user(user_req: UserCreateRequest, db: Session = Depends(get_db)):
+    return user_service.create_user(user_req, db)
 
+@router.get("/{user_id}", response_model=User)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = user_service.get_user(user_id, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
-class UserBase(BaseModel):
-    username: str
-    email: str
-    password: str
-
-
-class UserOut(UserBase):
-    id: int
-
-@router.get('/test')
-def test(db: Session = Depends(get_db)):
-    new_user = User(username='test1', email='test', password='test')
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return 'test'
-
-@router.post("/signup", response_model=UserOut)
-def create_user(user: UserBase, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.username == user.username).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    new_user = User(**user.dict())
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
-
-@router.get("/{username}", response_model=UserOut)
-def get_user(username: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
+@router.get("/by-username/{username}", response_model=User)
+def get_user_by_username(username: str, db: Session = Depends(get_db)):
+    user = user_service.get_user_by_username(username, db)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

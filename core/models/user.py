@@ -1,4 +1,10 @@
+from enum import Enum
 from sqlmodel import Field, SQLModel
+
+
+class UserRole(str, Enum):
+    student = "student"
+    tutor = "tutor"
 
 
 class User(SQLModel, table=True):
@@ -7,4 +13,4 @@ class User(SQLModel, table=True):
     username: str
     email: str
     password: str
-    role: str = Field(default="student")  # student, teacher, admin
+    role: UserRole = Field(default=UserRole.student)  # student, tutor
