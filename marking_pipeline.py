@@ -56,8 +56,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--model',
         type=str,
-        default='openai-gpt-4o',
-        help='Name of the LLM model to use for feedback generation (default: openai-gpt-4o)'
+        default='openai-gpt-o1-mini',
+        help='Name of the LLM model to use for feedback generation (default: openai-gpt-o1-mini)'
     )
     
     parser.add_argument(
@@ -102,6 +102,13 @@ def parse_args() -> argparse.Namespace:
         help='Path to the rubric YAML file'
     )
     
+    parser.add_argument(
+        '--test-timeout',
+        type=int,
+        default=30,  # Default timeout of 30 seconds
+        help='Maximum time in seconds allowed for running tests for a single problem (default: 30)'
+    )
+    
     args = parser.parse_args()
     
     # Handle path normalization
@@ -143,7 +150,7 @@ def setup_directories(group_type: str, group_number: str) -> dict:
         'rubric': base_dir / 'rubric',
         'test_cases': base_dir / 'rubric' / 'test_cases' / group_key,
         'test_results': base_dir / 'rubric' / 'test_results' / group_key,
-        'feedback': base_dir / 'feedback' / group_key  # TODO: Fix this path
+        'feedback': base_dir / 'feedback' / group_key
     }
     
     # Create directories if they don't exist
@@ -236,7 +243,8 @@ def process_group(args: argparse.Namespace) -> None:
                     student_info=student,
                     submission_folder=str(dirs['submissions']),
                     rubric_dir=str(dirs['rubric']),
-                    results_dir=str(dirs['test_results'])
+                    base_results_dir=str(dirs['rubric']),
+                    test_timeout=args.test_timeout
                 )
             
             # Generate feedback if not skipped
