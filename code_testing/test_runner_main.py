@@ -311,13 +311,35 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, base_resu
             # --- Run Code Quality Checks ---
             quality_results = run_quality_checks(temp_file)
 
-            # Store Flake8 results
+            # Process and Store Flake8 results
             if 'flake8' in quality_results:
-                flake8_run_results['problems'][problem_number]['flake8_results'] = quality_results['flake8']
+                flake8_result = quality_results['flake8']
+                # Replace absolute temp file path in output string with relative student path
+                if flake8_result.get('output') and temp_file:
+                    try:
+                        abs_temp_path = os.path.abspath(temp_file)
+                        # Ensure consistent path separators for replacement
+                        output_str = str(flake8_result['output'])
+                        # Escape backslashes in paths for safe replacement, especially on Windows
+                        escaped_abs_temp_path = abs_temp_path.replace('\\', '\\\\')
+                        escaped_relative_path = relative_solution_path.replace('\\', '\\\\')
+                        # Use regex for safer replacement, matching path at start of line
+                        # Pattern: ^ + escaped_path + : 
+                        pattern = r'^' + re.escape(escaped_abs_temp_path) + r':'
+                        modified_output = re.sub(pattern, escaped_relative_path + ':', output_str, flags=re.MULTILINE)
+                        # Fallback if regex didn't replace (e.g., path format slightly different)
+                        if modified_output == output_str:
+                             modified_output = output_str.replace(abs_temp_path, relative_solution_path)
+                             
+                        flake8_result['output'] = modified_output
+                    except Exception as path_replace_error:
+                        logger.warning(f"Could not replace path in flake8 output for {relative_solution_path}: {path_replace_error}")
+                        
+                flake8_run_results['problems'][problem_number]['flake8_results'] = flake8_result
             else:
                  flake8_run_results['problems'][problem_number]['flake8_results'] = {'error': 'Flake8 check failed or was not run.'}
 
-            # Store Black results
+            # Store Black results (assuming Black output doesn't contain problematic paths)
             if 'black' in quality_results:
                 black_run_results['problems'][problem_number]['black_results'] = quality_results['black']
             else:
