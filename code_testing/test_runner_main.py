@@ -263,10 +263,18 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, base_resu
     for file_path, problem_number in python_files:
         test_file = find_test_cases(rubric_dir, problem_number, lab_number)
         
-        # Initialize problem entries in results dictionaries
-        test_run_results['problems'][problem_number] = {'solution_path': file_path, 'test_results': None}
-        flake8_run_results['problems'][problem_number] = {'solution_path': file_path, 'flake8_results': None}
-        black_run_results['problems'][problem_number] = {'solution_path': file_path, 'black_results': None}
+        # Calculate relative path for solution file
+        try:
+            relative_solution_path = os.path.relpath(file_path, submission_folder)
+        except ValueError:
+            # Handle cases where paths are on different drives (Windows)
+            logger.warning(f"Could not create relative path for {file_path} from {submission_folder}. Using absolute path.")
+            relative_solution_path = file_path
+
+        # Initialize problem entries in results dictionaries with relative path
+        test_run_results['problems'][problem_number] = {'solution_path': relative_solution_path, 'test_results': None}
+        flake8_run_results['problems'][problem_number] = {'solution_path': relative_solution_path, 'flake8_results': None}
+        black_run_results['problems'][problem_number] = {'solution_path': relative_solution_path, 'black_results': None}
         
         temp_file = None # Ensure temp_file is defined for cleanup
         
@@ -276,9 +284,11 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, base_resu
             
             if not student_code:
                 logger.error(f"Could not read file {file_path}")
-                test_run_results['problems'][problem_number]['error'] = "Could not read file"
-                flake8_run_results['problems'][problem_number]['error'] = "Could not read file"
-                black_run_results['problems'][problem_number]['error'] = "Could not read file"
+                # Update error message with relative path
+                error_msg = f"Could not read file: {relative_solution_path}"
+                test_run_results['problems'][problem_number]['error'] = error_msg
+                flake8_run_results['problems'][problem_number]['error'] = error_msg
+                black_run_results['problems'][problem_number]['error'] = error_msg
                 continue
             
             # Create temporary file with student's code
@@ -314,7 +324,7 @@ def run_tests_for_student(student_info, submission_folder, rubric_dir, base_resu
                 black_run_results['problems'][problem_number]['black_results'] = {'error': 'Black check failed or was not run.'}
             
         except Exception as e:
-            error_message = f"Error processing file {file_path}: {str(e)}"
+            error_message = f"Error processing file {relative_solution_path}: {str(e)}" # Use relative path in error
             logger.error(error_message, exc_info=True) # Log traceback
             # Record error in all result structures for this problem
             test_run_results['problems'][problem_number]['error'] = error_message
