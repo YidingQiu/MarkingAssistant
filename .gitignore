@@ -7,6 +7,8 @@ feedback/*
 # Tests
 # rubric/test_cases/*
 rubric/test_results/*
+rubric/flake8_result/*
+rubric/black_result/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
