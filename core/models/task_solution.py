@@ -10,7 +10,7 @@ class TaskSolution(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id")
     task_id: int = Field(foreign_key="task.id")
     date: datetime = Field(default_factory=datetime.utcnow)
-    file_url: str
+    file_url: str | None
     score: Optional[float]
     scoring_version: str
     status: str

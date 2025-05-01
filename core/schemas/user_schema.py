@@ -1,9 +1,8 @@
 from typing import Optional
 
 from pydantic import BaseModel
-from sqlmodel import SQLModel
 
-from core.models.user import UserRole, User
+from core.models import UserRole, User
 
 
 class UserCreateRequest(BaseModel):
