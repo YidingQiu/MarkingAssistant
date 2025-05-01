@@ -1,6 +1,9 @@
-from pydantic import BaseModel
+from typing import Optional
 
-from core.models.user import UserRole
+from pydantic import BaseModel
+from sqlmodel import SQLModel
+
+from core.models.user import UserRole, User
 
 
 class UserCreateRequest(BaseModel):
@@ -8,3 +11,14 @@ class UserCreateRequest(BaseModel):
     email: str
     password: str
     role: UserRole = UserRole.student
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: UserRole
+
+    @staticmethod
+    def from_user(user: User | None) -> Optional['UserResponse']:
+        return UserResponse.model_validate(user.model_dump())

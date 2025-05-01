@@ -10,7 +10,7 @@ class UserRole(str, Enum):
 class User(SQLModel, table=True):
     """User model represents a user in the system."""
     id: int = Field(default=None, primary_key=True)
-    username: str
-    email: str
-    password: str
+    username: str = Field(unique=True)
+    email: str = Field(unique=True)
+    password: str = Field(exclude=True)
     role: UserRole = Field(default=UserRole.student)  # student, tutor
