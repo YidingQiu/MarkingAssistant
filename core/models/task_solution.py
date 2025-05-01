@@ -1,8 +1,11 @@
 from typing import Optional, Dict, Any
 from datetime import datetime
+
+from sqlalchemy import Column
 from sqlmodel import SQLModel, Field, JSON, Relationship
 
 class TaskSolution(SQLModel, table=True):
+    __tablename__ = "task_solution"
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
     task_id: int = Field(foreign_key="task.id")
@@ -11,4 +14,4 @@ class TaskSolution(SQLModel, table=True):
     score: Optional[float]
     scoring_version: str
     status: str
-    result: Dict[str, Any] = Field(sa_column=JSON)
+    result: Dict[str, Any] = Field(sa_column=Column(JSON))
