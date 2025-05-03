@@ -1,0 +1,10 @@
+criteria:
+  - id: add_function
+    description: "Correctly implements the add(a, b) function."
+    points: 5
+  - id: subtract_function
+    description: "Correctly implements the subtract(a, b) function."
+    points: 5
+  - id: code_style
+    description: "Code follows PEP8 style guidelines."
+    points: 2

@@ -1,0 +1,81 @@
+classDiagram
+
+class Course {
+  int id
+  str name
+  str short_name
+  str faculty
+}
+
+class UserCourse {
+  int user_id
+  int course_id
+  UserCourseRole role
+}
+
+class User {
+  int id
+  str username
+  str email
+  str password
+  UserRole role
+}
+
+class RubricConfig {
+  int id
+  Dict[str, Any] value
+  RubricScope scope
+}
+
+class Task {
+  int id
+  str name
+  str description
+  int course_id
+  str test_files_url
+  int rubric_config_id
+  Dict[str, Any] scoring_config
+}
+
+class TaskSolution {
+  int id
+  int user_id
+  int task_id
+  datetime date
+  str file_url
+  float score
+  str scoring_version
+  str status
+  Dict[str, Any] result
+}
+
+class UserRole {
+  <<enumeration>>
+  student
+  tutor
+  admin
+}
+
+class UserCourseRole {
+  <<enumeration>>
+  student
+  teacher
+  assistant
+}
+
+class RubricScope {
+  <<enumeration>>
+  public
+  private
+}
+
+Course "1" <-- "many" UserCourse : has
+User "1" <-- "many" UserCourse : has
+UserCourse "many" --> "1" Course
+
+
+Task "1" --> "0..1" RubricConfig : uses
+Task "1" <-- "many" TaskSolution : solved by
+User "1" <-- "many" TaskSolution : submit by
+Course "1" <-- "many" Task : includes
+
