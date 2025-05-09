@@ -12,6 +12,7 @@ class TaskSolution(SQLModel, table=True):
     date: datetime = Field(default_factory=datetime.utcnow)
     file_url: str | None
     score: Optional[float]
-    scoring_version: str
+    scoring_version: Optional[str]
     status: str
-    result: Dict[str, Any] = Field(sa_column=Column(JSON))
+    result: Dict[str, Any] | None = Field(sa_column=Column(JSON))
+    last_updated: datetime | None
