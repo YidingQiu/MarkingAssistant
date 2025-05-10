@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from typing import List, Optional, Dict, Any
 from sqlmodel import Session
 from core.models.task import Task
@@ -9,12 +9,12 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 @router.post("/", response_model=Task)
 def create_task(
-    name: str,
-    description: Optional[str] = None,
-    course_id: int = Query(...),
-    test_files_url: Optional[str] = None,
-    scoring_config: Dict[str, Any] = Query(...),
-    rubric_config_id: Optional[int] = None,
+    name: str = Body(...),
+    description: Optional[str] = Body(...),
+    course_id: int = Body(...),
+    test_files_url: Optional[str] = Body(...),
+    scoring_config: Dict[str, Any] = Body(...),
+    rubric_config_id: Optional[int] = Body(...),
     db: Session = Depends(get_db)
 ):
     return task_service.create_task(
@@ -36,6 +36,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 
 @router.get("/by-course/{course_id}", response_model=List[Task])
 def list_tasks_by_course_id(course_id: int, db: Session = Depends(get_db)):
+    a = task_service.list_tasks_by_course_id(db, course_id)
     return task_service.list_tasks_by_course_id(db, course_id)
 
 @router.put("/{task_id}", response_model=Task)
