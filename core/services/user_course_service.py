@@ -4,6 +4,10 @@ from sqlmodel import Session, select
 
 from core.models import Course, UserCourse, UserCourseRole, User
 
+def list_all(db: Session) -> List[Course]:
+    statement = select(Course)
+    courses = db.exec(statement).all()
+    return courses
 
 def list_courses_by_userid(user_id: int, db: Session) -> List[Course]:
     statement = select(Course).join(UserCourse).where(UserCourse.user_id == user_id)
@@ -12,10 +16,6 @@ def list_courses_by_userid(user_id: int, db: Session) -> List[Course]:
 
 
 def create_user_course(db: Session, user_id: int, course_id: int, role: Optional[UserCourseRole] = UserCourseRole.student) -> UserCourse:
-    existing = db.get(UserCourse, (user_id, course_id))
-    if existing:
-        raise HTTPException(status_code=400, detail="UserCourse already exists")
-
     user_course = UserCourse(user_id=user_id, course_id=course_id, role=role)
     db.add(user_course)
     db.commit()
