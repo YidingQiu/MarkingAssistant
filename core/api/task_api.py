@@ -12,9 +12,9 @@ def create_task(
     name: str = Body(...),
     description: Optional[str] = Body(...),
     course_id: int = Body(...),
-    test_files_url: Optional[str] = Body(...),
+    test_files_url: Optional[str] = Body(None),
     scoring_config: Dict[str, Any] = Body(...),
-    rubric_config_id: Optional[int] = Body(...),
+    rubric_config_id: Optional[int] = Body(None),
     db: Session = Depends(get_db)
 ):
     return task_service.create_task(

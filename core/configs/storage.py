@@ -1,5 +1,3 @@
-# from minio import Minio
-# from minio.error import S3Error
 from datetime import timedelta
 from fastapi import HTTPException
 from minio import Minio, S3Error
@@ -15,19 +13,19 @@ client = Minio(
             secure=False # todo setup secure
         )
 
-def make_upload_url(self, bucket: str, object_name: str, expires: int = 3600) -> str:
+def make_upload_url(bucket: str, object_name: str, expires: int = 3600) -> str:
     try:
         return client.presigned_put_object(bucket, object_name, expires=timedelta(seconds=expires))
     except S3Error as e:
         raise HTTPException(status_code=500, detail=f"MinIO upload URL error: {str(e)}")
 
-def get_download_link(self, bucket: str, object_name: str, expires: int = 3600) -> str:
+def get_download_link(bucket: str, object_name: str, expires: int = 3600) -> str:
     try:
         return client.presigned_get_object(bucket, object_name, expires=timedelta(seconds=expires))
     except S3Error as e:
         raise HTTPException(status_code=500, detail=f"MinIO download URL error: {str(e)}")
 
-def download_file(self, bucket: str, object_name: str) -> bytes:
+def download_file(bucket: str, object_name: str) -> bytes:
     try:
         response = client.get_object(bucket, object_name)
         data = response.read()

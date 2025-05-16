@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from core.api import user_api, course_api, task_api
+from core.api import user_api, course_api, task_api, solution_api
 from core.api import rubric_config_api
 from core.configs.database import init_db
 
@@ -31,3 +31,4 @@ app.include_router(user_api.router)
 app.include_router(rubric_config_api.router)
 app.include_router(course_api.router)
 app.include_router(task_api.router)
+app.include_router(solution_api.router)

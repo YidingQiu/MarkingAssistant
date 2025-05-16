@@ -5,6 +5,8 @@ from core.configs import storage
 from core.models.task_solution import TaskSolution
 from datetime import datetime, UTC
 
+from core.utils.utils import STORAGE_PRIVATE_BUCKET
+
 
 def list_by_task(db: Session, task_id: int) -> List[TaskSolution]:
     statement = select(TaskSolution).where(TaskSolution.task_id == task_id)
@@ -14,9 +16,9 @@ def list_by_task(db: Session, task_id: int) -> List[TaskSolution]:
 def __make_task_solution(solution: Optional[TaskSolution], include_files: bool) -> Optional[TaskSolution]:
     if not solution:
         return None
-    if include_files and solution.test_files_url:
+    if include_files and solution.files_path:
         # Download and attach test files content (add as a dynamic attribute)
-        solution.test_files_content = storage.download_file(solution.test_files_url)
+        solution.files_content = storage.download_file(STORAGE_PRIVATE_BUCKET, solution.files_path)
     return solution
 
 
@@ -38,21 +40,19 @@ def create(
         db: Session,
         user_id: int,
         task_id: int,
-        file_url: str | None,
-        score: Optional[float],
-        scoring_version: Optional[str],
-        status: str,
-        result: Dict[str, Any] | None,
-        last_updated: datetime | None = None
+        file_path: str | None,
+        score: Optional[float] = None,
+        scoring_version: Optional[str] = None,
+        result: Dict[str, Any] = None,
 ) -> TaskSolution:
     solution = TaskSolution(
         user_id=user_id,
         task_id=task_id,
         date=datetime.now(UTC),
-        file_url=file_url,
+        file_path=file_path,
         score=score,
         scoring_version=scoring_version,
-        status=status,
+        status="created",
         result=result
     )
     db.add(solution)
