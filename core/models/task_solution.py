@@ -14,5 +14,5 @@ class TaskSolution(SQLModel, table=True):
     score: Optional[float]
     scoring_version: Optional[str]
     status: str
-    result: Dict[str, Any] | None = Field(sa_column=Column(JSON))
+    result: str | None
     last_updated: datetime | None
