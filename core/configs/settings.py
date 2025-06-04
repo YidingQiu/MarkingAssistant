@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     STORAGE_ENDPOINT: str
     STORAGE_ACCESS_KEY: str
     STORAGE_SECRET_KEY: str
+    JWT_ACCESS_SECRET: str
+    JWT_REFRESH_SECRET: str
     DEBUG: bool = True
 
     class Config:
