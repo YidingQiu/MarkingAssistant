@@ -27,5 +27,6 @@ def refresh_token(refresh_token: str = Body(...)):
     new_access_token = create_access_token(payload)
     return {
         "access_token": new_access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer"
     }
