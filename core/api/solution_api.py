@@ -33,14 +33,22 @@ def get_solution_by_user_task(user_id: int = Query(...), task_id: int = Query(..
     return solution
 
 
-@router.post("/", response_model=TaskSolution)
+@router.post("/", response_model=Optional[TaskSolution])
 def create_solution(
-        user_id: int = Body(...),
+        user_id: Optional[int] = Body(None),
         task_id: int = Body(...),
         file_name: str = Body(...),
         db: Session = Depends(get_db)
 ):
+    """
+    user_id: None if bulk submitting solution
+    """
     file_path = make_solution_file_path(task_id, task_id, user_id, file_name)
+
+    if not user_id:
+        ...  # todo send to celery for bulk process
+        return None
+
     solution = task_solution_service.create(
         db=db,
         user_id=user_id,
@@ -48,6 +56,7 @@ def create_solution(
         file_path=file_path,
     )
     return solution
+
 
 # ## todo by tutor / by student
 @router.put("/{solution_id}", response_model=Optional[TaskSolution])
@@ -69,8 +78,11 @@ def update_solution(
 
 
 @router.post("/upload_link")
-def create_upload_link(task_id: int = Query(...), user_id: int = Query(...), file_name: str = Query(...),
-                         db: Session = Depends(get_db)):
+def create_upload_link(task_id: int = Query(...), user_id: Optional[str] = Query(None), file_name: str = Query(...),
+                       db: Session = Depends(get_db)):
+    """
+    user_id: None if bulk uploading solution
+    """
     task = task_service.get_task(db, task_id)
     path = make_solution_file_path(task.course_id, task_id, user_id, file_name)
     upload_link = make_upload_url(STORAGE_PRIVATE_BUCKET, path)

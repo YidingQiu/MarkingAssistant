@@ -1,5 +1,4 @@
 from fastapi import Depends, HTTPException, APIRouter, Body
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
 from core.auth.auth_handler import authenticate_user, create_access_token, create_refresh_token, verify_refresh_token
@@ -8,9 +7,10 @@ from core.schemas.token import Token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_db)):
-    user = authenticate_user(session, form_data.username, form_data.password)
+def login(username: str = Body(...), password: str = Body(...), session: Session = Depends(get_db)):
+    user = authenticate_user(session, username, password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     access_token = create_access_token(user.dict())
@@ -20,6 +20,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
         "refresh_token": refresh_token,  # include in response
         "token_type": "bearer"
     }
+
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(refresh_token: str = Body(...)):
