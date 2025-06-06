@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Define allowed origins
-origins = ["http://localhost:3000"] # TODO: add our domain
+origins = ["http://localhost:3000", "http://34.223.67.247:3000"] # TODO: add our domain
 
 app.add_middleware(
     CORSMiddleware,
