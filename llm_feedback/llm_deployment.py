@@ -72,12 +72,13 @@ class LLMDeployment:
             logger.error(f"Failed to verify model {self.model_name}: {str(e)}")
             raise RuntimeError(f"Model {self.model_name} is not available in Ollama")
 
-    def _safe_chat(self, messages: List[Dict[str, str]], system_prompt: Optional[str] = None) -> LLMResponse:
+    def _safe_chat(self, messages: List[Dict[str, str]], system_prompt: Optional[str] = None, temperature: Optional[float] = None) -> LLMResponse:
         """Safely execute chat with error handling.
         
         Args:
             messages: List of message dictionaries with role and content
             system_prompt: Optional system prompt to set context
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse object containing the response and status
@@ -89,17 +90,30 @@ class LLMDeployment:
             if self.use_openai:
                 # Convert messages to OpenAI format
                 openai_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
-                response = self.client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=openai_messages
-                )
+                completion_params = {
+                    "model": "gpt-4o", # Or self.model_name if it's the full OpenAI model name
+                    "messages": openai_messages
+                }
+                if temperature is not None:
+                    completion_params["temperature"] = temperature
+                
+                response = self.client.chat.completions.create(**completion_params)
+
                 return LLMResponse(
                     content=response.choices[0].message.content,
                     raw_response=response.to_dict(),
                     success=True
                 )
             else:
-                response = ollama.chat(model=self.model_name, messages=messages)
+                chat_options = {}
+                if temperature is not None:
+                    chat_options["temperature"] = temperature
+
+                response = ollama.chat(
+                    model=self.model_name, 
+                    messages=messages,
+                    options=chat_options if chat_options else None
+                )
                 return LLMResponse(
                     content=response["message"]["content"],
                     raw_response=response,
@@ -114,12 +128,13 @@ class LLMDeployment:
                 error=str(e)
             )
 
-    def analyze_test_results(self, test_results: Dict, rubric_criteria: Optional[Dict] = None) -> LLMResponse:
+    def analyze_test_results(self, test_results: Dict, rubric_criteria: Optional[Dict] = None, temperature: Optional[float] = None) -> LLMResponse:
         """Analyze test results and generate insights.
         
         Args:
             test_results: Dictionary containing test results
             rubric_criteria: Optional rubric criteria for context
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with analysis
@@ -129,18 +144,20 @@ class LLMDeployment:
             content += "\n\nRubric Criteria:\n" + json.dumps(rubric_criteria, indent=2)
             
         messages = [{"role": "user", "content": content}]
-        return self._safe_chat(messages, PROMPTS['test_analysis']['system_prompt'])
+        return self._safe_chat(messages, PROMPTS['test_analysis']['system_prompt'], temperature=temperature)
 
     def generate_feedback(self, 
                         test_analysis: Dict, 
                         code_quality: Dict,
-                        rubric_evaluation: Optional[Dict] = None) -> LLMResponse:
+                        rubric_evaluation: Optional[Dict] = None,
+                        temperature: Optional[float] = None) -> LLMResponse:
         """Generate comprehensive feedback based on test analysis and code quality.
         
         Args:
             test_analysis: Dictionary containing test result analysis
             code_quality: Dictionary containing code quality metrics
             rubric_evaluation: Optional rubric evaluation results
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with formatted feedback
@@ -152,13 +169,14 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, PROMPTS['feedback_generation']['system_prompt'])
+        return self._safe_chat(messages, PROMPTS['feedback_generation']['system_prompt'], temperature=temperature)
 
     def calculate_score(self, 
                        test_results: Dict,
                        code_quality: Dict,
                        rubric: Dict,
-                       max_score: float) -> LLMResponse:
+                       max_score: float,
+                       temperature: Optional[float] = None) -> LLMResponse:
         """Calculate score based on test results, code quality, and rubric.
         
         Args:
@@ -166,6 +184,7 @@ class LLMDeployment:
             code_quality: Dictionary containing code quality metrics
             rubric: Dictionary containing rubric criteria and weights
             max_score: Maximum possible score
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with calculated score and justification
@@ -178,28 +197,31 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, PROMPTS['score_calculation']['system_prompt'])
+        return self._safe_chat(messages, PROMPTS['score_calculation']['system_prompt'], temperature=temperature)
 
-    def analyze_code_quality(self, quality_report: Dict) -> LLMResponse:
+    def analyze_code_quality(self, quality_report: Dict, temperature: Optional[float] = None) -> LLMResponse:
         """Analyze code quality report and provide insights.
         
         Args:
             quality_report: Dictionary containing code quality metrics
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with analysis of code quality
         """
         messages = [{"role": "user", "content": json.dumps(quality_report, indent=2)}]
-        return self._safe_chat(messages, PROMPTS['code_quality']['system_prompt'])
+        return self._safe_chat(messages, PROMPTS['code_quality']['system_prompt'], temperature=temperature)
 
     def evaluate_rubric_criteria(self, 
                                submission_data: Dict,
-                               rubric: Dict) -> LLMResponse:
+                               rubric: Dict,
+                               temperature: Optional[float] = None) -> LLMResponse:
         """Evaluate submission against rubric criteria.
         
         Args:
             submission_data: Dictionary containing submission details
             rubric: Dictionary containing rubric criteria
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with evaluation against each rubric criterion
@@ -213,18 +235,20 @@ class LLMDeployment:
         }
         
         messages = [{"role": "user", "content": json.dumps(content, indent=2)}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, system_prompt, temperature=temperature)
 
     def custom_analysis(self, 
                        data: Union[Dict, str],
                        system_prompt: str,
-                       user_prompt: Optional[str] = None) -> LLMResponse:
+                       user_prompt: Optional[str] = None,
+                       temperature: Optional[float] = None) -> LLMResponse:
         """Perform custom analysis with specified prompts.
         
         Args:
             data: Data to analyze (dictionary or string)
             system_prompt: System prompt for setting context
             user_prompt: Optional additional user prompt
+            temperature: Optional temperature setting for the LLM.
             
         Returns:
             LLMResponse with analysis
@@ -234,4 +258,4 @@ class LLMDeployment:
             content = f"{user_prompt}\n\n{content}"
             
         messages = [{"role": "user", "content": content}]
-        return self._safe_chat(messages, system_prompt)
+        return self._safe_chat(messages, system_prompt, temperature=temperature)
