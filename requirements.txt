@@ -22,3 +22,4 @@ redis==5.0.8
 Sphinx==8.2.3
 thread==2.0.5
 urllib3_secure_extra==0.1.0
+pydantic
