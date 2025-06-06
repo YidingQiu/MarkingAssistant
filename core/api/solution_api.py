@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from typing import List, Optional, Dict, Any
 from sqlmodel import Session
 
+from core.auth.auth_handler import get_current_user
 from core.configs.database import get_db
 from core.configs.storage import make_upload_url
 from core.services import task_solution_service, task_service
@@ -79,7 +80,7 @@ def update_solution(
 
 @router.post("/upload_link")
 def create_upload_link(task_id: int = Query(...), user_id: Optional[str] = Query(None), file_name: str = Query(...),
-                       db: Session = Depends(get_db)):
+                       db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     """
     user_id: None if bulk uploading solution
     """

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from typing import List
 
+from core.auth.auth_handler import get_current_user
 from core.configs.database import get_db
 from core.models import Course, UserCourse, User, UserCourseRole
 from core.services import user_course_service  # Your service module
