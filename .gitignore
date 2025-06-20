@@ -17,6 +17,7 @@ rubric/test_results/*
 rubric/flake8_result/*
 rubric/black_result/*
 rubric/tasks/*
+rubric/*.yaml
 temp/*
 
 # Byte-compiled / optimized / DLL files
