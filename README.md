@@ -251,61 +251,81 @@ graph TD
 The marking pipeline can be run using the following command:
 
 ```bash
-python marking_pipeline.py --group-name <group_name> [options]
+python marking_pipeline.py --task-name <task_name> [options]
 ```
 
 #### Required Arguments:
-- `--group-name`: Name of the group to process (e.g., Lab1, Ass2)
-  - Must start with either "Lab" or "Ass" followed by a number
+- `--task-name`: Name of the task to process (e.g., Lab1, Ass2, "ZEIT1307-5254_00067_Lab 1_submission")
+  - This corresponds to a key in the config file and a folder in the submissions directory.
 
 #### Optional Arguments:
-- `--submissions-dir`: Path to submissions directory (default: 'submissions')
-- `--model`: Name of the LLM model to use for feedback generation (default: 'openai-gpt-4o')
+- `--submissions-dir`: Path to the base submissions directory (default: 'submissions')
+  - Expected structure: `submissions_dir / task_name / user_submission_folder`
+- `--config-file`: Path to the main YAML configuration file defining tasks (default: 'rubric/marking_config.yaml')
+- `--model`: Name of the LLM model to use for feedback generation (default: 'openai-gpt-4o') # Default might vary
 - `--feedback-format`: Format of the generated feedback (choices: html, markdown, text; default: markdown)
 - `--log-level`: Set the logging level (choices: DEBUG, INFO, WARNING, ERROR, CRITICAL; default: INFO)
 - `--log-file`: Path to log file (default: marking_pipeline.log)
 - `--skip-feedback`: Skip feedback generation and only run tests
 - `--skip-tests`: Skip test running and only generate feedback
-- `--rubric-file`: Path to the rubric YAML file (default: 'rubric/marking_rubric.yaml')
+- `--test-timeout`: Maximum time in seconds allowed for running tests for a single problem/task (default: 30)
 
 #### Example Usage:
 
-1. Basic usage for a lab assignment:
+1. Basic usage for a specific task named "Lab1":
 ```bash
-python marking_pipeline.py --group-name Lab1
+python marking_pipeline.py --task-name Lab1
 ```
 
-2. Process an assignment with custom directories:
+2. Process a task with a name containing spaces, specifying directories:
 ```bash
-python marking_pipeline.py --group-name Ass2 --submissions-dir "path/to/submissions" --rubric-file "path/to/rubric.yaml"
+python marking_pipeline.py --task-name "Ass2 Part 1" --submissions-dir "path/to/all_submissions" --config-file "path/to/main_config.yaml"
 ```
 
-3. Skip feedback generation and only run tests:
+3. Skip feedback generation for "Lab3":
 ```bash
-python marking_pipeline.py --group-name Lab3 --skip-feedback
+python marking_pipeline.py --task-name Lab3 --skip-feedback
 ```
 
-4. Use a different LLM model and feedback format:
+4. Use a different LLM model and feedback format for "Ass1":
 ```bash
-python marking_pipeline.py --group-name Ass1 --model llama --feedback-format markdown
+python marking_pipeline.py --task-name Ass1 --model llama --feedback-format html
 ```
 
 #### Directory Structure:
-The pipeline expects the following directory structure:
+The pipeline generally expects and uses a structure like this:
 ```
 .
-├── submissions/          # Student submissions
-├── rubric/              # Assessment rubrics
-│   ├── test_cases/      # Test cases for each group
-│   └── test_results/    # Test results for each group
-├── feedback/            # Generated feedback
-└── marking_pipeline.log # Log file
+├── submissions/          # Base directory for all task submissions
+│   ├── Task1/           # Submissions specifically for Task1
+│   │   └── UserFolder1/
+│   │   └── UserFolder2/
+│   └── Task2/           # Submissions specifically for Task2
+│       └── ...
+├── rubric/               # Base directory for configuration and tests
+│   ├── marking_config.yaml # Main configuration file (or path specified by --config-file)
+│   ├── test_cases/       # Test cases organized by task name
+│   │   ├── Task1/
+│   │   │   └── test_problem1.py
+│   │   └── Task2/
+│   │       └── ...
+│   └── test_results/     # Test results organized by task name
+│       ├── Task1/
+│       │   └── User1_Task1_results.json
+│       └── Task2/
+│           └── ...
+├── feedback/             # Generated feedback organized by task name
+│   ├── Task1/
+│   │   └── User1_Task1_feedback.md
+│   └── Task2/
+│       └── ...
+└── marking_pipeline.log  # Log file
 ```
 
 #### Output:
-- Test results are stored in `rubric/test_results/<group_name>/`
-- Feedback is generated in `feedback/<group_name>/`
-- Detailed logs are written to `marking_pipeline.log`
+- Test results are stored in `rubric/test_results/<task_name>/` (or similar structure defined in test runner)
+- Feedback is generated in `feedback/<task_name>/`
+- Detailed logs are written to `marking_pipeline.log` (or file specified by --log-file)
 
 ## Planned Development Phases
 

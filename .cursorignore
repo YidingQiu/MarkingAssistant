@@ -1,24 +1,26 @@
+rubric/test_cases
+rubric/test_results
+rubric/template
+
+
+rubric\black_result
+rubric\flake8_result
+
+submissions\
+
+feedback\
+
 # Student submission folder
 submissions/*
 
-# Data folder
-temp/*
-
-
 # feedback folder
 feedback/*
-reports/*
-results/*
-results_oop/*
 
 # Tests
-rubric/test_cases/*
+# rubric/test_cases/*
 rubric/test_results/*
 rubric/flake8_result/*
 rubric/black_result/*
-rubric/tasks/*
-rubric/*.yaml
-temp/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
