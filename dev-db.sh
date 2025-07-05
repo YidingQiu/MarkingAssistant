@@ -112,6 +112,7 @@ init_schema() {
     
     echo "Creating database tables..."
     cd core
+    export ENV_FILE=../local.env
     python -c "
 from configs.database import init_db
 print('Initializing database schema...')
