@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres_dev
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-marking_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marking_password}
+      POSTGRES_DB: ${POSTGRES_DB:-marking_assistant}
+      PG_USER_READ: ${PG_USER_READ:-readonly_user}
+      PG_PASSWORD_READ: ${PG_PASSWORD_READ:-readonly_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"  # Exposed for local development access
+    networks:
+      - dev-network
+
+  minio:
+    image: minio/minio
+    container_name: minio_dev
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL:-http://localhost:9000}
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - dev-network
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  dev-network:
+    driver: bridge 
