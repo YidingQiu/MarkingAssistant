@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./initdb:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"  # Exposed for local development access
+      - "15432:5432"  # Changed from 5432 to 15432 to avoid conflicts
     networks:
       - dev-network
 
