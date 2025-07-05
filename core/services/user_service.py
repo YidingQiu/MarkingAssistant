@@ -1,11 +1,13 @@
 from typing import Optional, List
 from sqlmodel import Session, select
 
+from core.auth.auth_handler import get_password_hash
 from core.models import User
 from core.schemas.user_schema import UserCreateRequest, UserResponse
 
 
 def create_user(user_req: UserCreateRequest, db: Session) -> UserResponse:
+    user_req.password = get_password_hash(user_req.password)
     user = User(**user_req.model_dump())
     db.add(user)
     db.commit()

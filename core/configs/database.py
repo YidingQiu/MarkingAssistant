@@ -3,7 +3,7 @@ from sqlmodel import SQLModel, create_engine, Session
 
 from core.configs.settings import settings
 
-DATABASE_URL = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_URL}:{settings.DB_PORT}/marking"
+DATABASE_URL = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
 engine = create_engine(DATABASE_URL, echo=True)
 
