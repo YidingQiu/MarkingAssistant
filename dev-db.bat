@@ -125,8 +125,7 @@ if errorlevel 1 (
 
 echo Creating database tables...
 cd core
-set ENV_FILE=../local.env
-python -c "from configs.database import init_db; print('Initializing database schema...'); init_db(); print('✅ Database schema created successfully!')"
+python init_db.py
 cd ..
 echo ✅ Schema initialization complete!
 goto end
