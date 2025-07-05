@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     class Config:
-        env_file = os.getenv("ENV_FILE", "local.env")
+        # Look for env file in project root, even when running from subdirectories
+        env_file = os.getenv("ENV_FILE") or str(Path(__file__).parent.parent.parent / "local.env")
 
 settings = Settings()
