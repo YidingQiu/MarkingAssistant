@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter, Body
 from sqlmodel import Session
 
 from core.auth.auth_handler import authenticate_user, create_access_token, create_refresh_token, verify_refresh_token
+from core.auth.google_auth_handler import authenticate_google_user
 from core.configs.database import get_db
 from core.schemas.token import Token
 
@@ -30,4 +31,15 @@ def refresh_token(refresh_token: str = Body(...)):
         "access_token": new_access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer"
+    }
+
+@router.post("/google", response_model=Token)
+async def google_login(id_token: str = Body(), db: Session = Depends(get_db)):
+    user = await authenticate_google_user(db, id_token)
+    access_token = create_access_token(user.dict())
+    refresh_token = create_refresh_token(user)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
     }
