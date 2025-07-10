@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import json
 import logging
 from pathlib import Path
@@ -19,8 +19,19 @@ class TestSummary:
     @classmethod
     def from_dict(cls, data: Dict) -> 'TestSummary':
         summary = data.copy()
-        summary['success_rate'] = (summary['passed_tests'] / summary['total_tests']) * 100
-        return cls(**summary)
+        total_tests = summary.get('total_tests', 0)
+        passed_tests = summary.get('passed_tests', 0)
+        # Handle division by zero if no tests were run
+        summary['success_rate'] = (passed_tests / total_tests * 100) if total_tests > 0 else 0.0
+        # Ensure all required keys are present, potentially providing defaults
+        return cls(
+            passed=summary.get('passed', False),
+            exit_code=summary.get('exit_code', 'N/A'),
+            total_tests=total_tests,
+            passed_tests=passed_tests,
+            failed_tests=summary.get('failed_tests', 0),
+            success_rate=summary['success_rate']
+        )
     
     def to_dict(self) -> Dict:
         return {
@@ -37,15 +48,21 @@ class TestSummary:
 class TestDetails:
     test_cases: List[str]
     full_output: str
+    error_output: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'TestDetails':
-        return cls(**data)
+        return cls(
+            test_cases=data.get('test_cases', []),
+            full_output=data.get('full_output', ''),
+            error_output=data.get('error_output')  # Accepts None if not present
+        )
     
     def to_dict(self) -> Dict:
         return {
             'test_cases': self.test_cases,
-            'full_output': self.full_output
+            'full_output': self.full_output,
+            'error_output': self.error_output
         }
 
 
@@ -142,28 +159,33 @@ class ProblemResult:
 class SubmissionMetadata:
     student_name: str
     student_id: str
-    lab_number: str
+    task_name: str
     timestamp: str
+    lab_number: Optional[str] = None
+    student_info: Optional[Dict[str, str]] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'SubmissionMetadata':
-        return cls(**data)
+        mapped_data = {
+            'student_name': data.get('student_name'),
+            'student_id': data.get('student_id'),
+            'task_name': data.get('task_name'),
+            'timestamp': data.get('timestamp'),
+            'lab_number': data.get('lab_number'),
+            'student_info': data.get('student_info')
+        }
+        return cls(**mapped_data)
     
     def to_dict(self) -> Dict:
-        return {
-            'student_name': self.student_name,
-            'student_id': self.student_id,
-            'lab_number': self.lab_number,
-            'timestamp': self.timestamp
-        }
+        return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 class TestResultAnalyzer:
     def __init__(self, results_json_path: str):
         """Initialize the analyzer with path to results JSON file."""
         self.results_json_path = results_json_path
-        self.metadata = None
-        self.problems = {}
+        self.metadata: Optional[SubmissionMetadata] = None
+        self.problems: Dict[str, ProblemResult] = {}
         logger.info(f"Initializing TestResultAnalyzer with results file: {results_json_path}")
         self._load_results()
 
@@ -175,15 +197,31 @@ class TestResultAnalyzer:
                 data = json.load(f)
             
             logger.info("Parsing metadata")
+            if 'metadata' not in data:
+                logger.error("'metadata' key missing from results JSON.")
+                raise KeyError("'metadata' key missing from results JSON.")
+            
             self.metadata = SubmissionMetadata.from_dict(data['metadata'])
-            logger.debug(f"Metadata loaded: {self.metadata.to_dict()}")
+            logger.debug(f"Metadata loaded: {self.metadata.to_dict() if self.metadata else 'None'}")
             
             logger.info("Parsing problem results")
             self.problems = {}
-            for problem_id, problem_data in data['problems'].items():
+            if 'problems' not in data:
+                logger.warning("'problems' key missing from results JSON.")
+                return
+            
+            for problem_id, problem_data in data.get('problems', {}).items():
                 logger.debug(f"Processing problem {problem_id}")
                 try:
-                    self.problems[problem_id] = ProblemResult.from_dict(problem_data)
+                    # Create a simplified problem result with just test results
+                    self.problems[problem_id] = ProblemResult(
+                        solution_path=problem_data['solution_path'],
+                        test_results={
+                            'summary': TestSummary.from_dict(problem_data['test_results']['summary']),
+                            'details': TestDetails.from_dict(problem_data['test_results']['details'])
+                        },
+                        code_quality=None  # Code quality is now handled separately
+                    )
                     logger.debug(f"Successfully processed problem {problem_id}")
                 except Exception as e:
                     logger.error(f"Error processing problem {problem_id}: {str(e)}")
@@ -196,15 +234,20 @@ class TestResultAnalyzer:
             logger.error(f"Error reading file (encoding issue): {str(e)}")
             logger.info("Attempting to read with different encoding...")
             try:
-                # Try reading with a more permissive encoding
                 with open(self.results_json_path, 'r', encoding='utf-8-sig') as f:
                     data = json.load(f)
                 logger.info("Successfully read file with utf-8-sig encoding")
-                # Continue with the same processing...
                 self.metadata = SubmissionMetadata.from_dict(data['metadata'])
                 self.problems = {}
                 for problem_id, problem_data in data['problems'].items():
-                    self.problems[problem_id] = ProblemResult.from_dict(problem_data)
+                    self.problems[problem_id] = ProblemResult(
+                        solution_path=problem_data['solution_path'],
+                        test_results={
+                            'summary': TestSummary.from_dict(problem_data['test_results']['summary']),
+                            'details': TestDetails.from_dict(problem_data['test_results']['details'])
+                        },
+                        code_quality=None
+                    )
                 logger.info(f"Successfully loaded {len(self.problems)} problems")
             except Exception as e2:
                 logger.error(f"Error loading results with alternative encoding: {str(e2)}")
@@ -231,13 +274,7 @@ class TestResultAnalyzer:
             analysis = {
                 'success_rate': problem.test_results['summary'].success_rate,
                 'passed_all_tests': problem.test_results['summary'].passed,
-                'test_cases': problem.test_results['details'].test_cases,
-                'has_quality_issues': problem.code_quality.has_quality_issues,
-                'quality_tools': {
-                    tool: result.output
-                    for tool, result in problem.code_quality.tool_results.items()
-                    if result.has_issues
-                }
+                'test_cases': problem.test_results['details'].test_cases
             }
             logger.debug(f"Analysis result: {analysis}")
             return analysis
@@ -262,39 +299,23 @@ class TestResultAnalyzer:
         logger.debug(f"Overall success rate: {success_rate}%")
         return success_rate
 
-    def get_code_quality_summary(self) -> Dict[str, int]:
-        """Get a summary of code quality issues across all problems."""
-        logger.info("Getting code quality summary")
-        issues_count = {'total': 0}
-        
-        for problem in self.problems.values():
-            quality = problem.code_quality
-            if quality.has_quality_issues:
-                issues_count['total'] += 1
-                for tool, result in quality.tool_results.items():
-                    if result.has_issues:
-                        issues_count[tool] = issues_count.get(tool, 0) + 1
-        
-        logger.debug(f"Code quality summary: {issues_count}")
-        return issues_count
-
     def get_submission_summary(self) -> Dict:
         """Get a high-level summary of the entire submission."""
         logger.info("Getting submission summary")
+        if not self.metadata:
+            logger.error("Cannot generate summary: Metadata not loaded.")
+            return {"error": "Metadata not loaded"}
+        
         try:
             summary = {
                 'student': {
                     'name': self.metadata.student_name,
                     'id': self.metadata.student_id,
-                    'lab': self.metadata.lab_number,
+                    'task': self.metadata.task_name,
                     'submission_time': self.metadata.timestamp
                 },
                 'overall_success_rate': self.get_overall_success_rate(),
                 'problems_attempted': len(self.problems),
-                'problems_with_quality_issues': len([
-                    p for p in self.problems.values()
-                    if p.code_quality.has_quality_issues
-                ]),
                 'problems_passing_all_tests': len([
                     p for p in self.problems.values()
                     if p.test_results['summary'].passed

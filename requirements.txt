@@ -23,6 +23,7 @@ Sphinx==8.2.3
 thread==2.0.5
 urllib3_secure_extra==0.1.0
 fastapi[standard]==0.115.12
+pydantic
 pydantic-settings==2.9.1
 sqlmodel==0.0.24
 psycopg2-binary==2.9.10
