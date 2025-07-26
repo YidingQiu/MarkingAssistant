@@ -4,7 +4,8 @@ import zipfile
 from pathlib import Path
 from typing import List, Optional
 
-from .student import Student
+# Import User model from core instead of local Student
+from core.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +13,17 @@ logger = logging.getLogger(__name__)
 class Submission:
     """Represents a single student's submission for a task."""
 
-    def __init__(self, student: Student, submission_path: str):
-        self.student = student
+    def __init__(self, user: User, submission_path: str, submission_id: Optional[int] = None):
+        self.user = user  # Changed from student to user
+        self.submission_id = submission_id  # Database ID for the submission record
         self.submission_path = Path(submission_path)
         self.files: List[Path] = []
         self._discover_files()
+
+    @property
+    def student(self) -> User:
+        """Backward compatibility property to access user as student."""
+        return self.user
 
     def _discover_files(self) -> None:
         """
@@ -24,7 +31,7 @@ class Submission:
         The original .zip file is deleted after successful extraction.
         """
         if not self.submission_path.is_dir():
-            logger.error(f"Submission directory not found for student {self.student.id}: {self.submission_path}")
+            logger.error(f"Submission directory not found for user {self.user.username}: {self.submission_path}")
             return
 
         # First, handle any zip files by extracting them
@@ -39,9 +46,9 @@ class Submission:
                     self.files.append(file_path.resolve())
         
         if not self.files:
-            logger.warning(f"No processable files found in {self.submission_path} for student {self.student.id}")
+            logger.warning(f"No processable files found in {self.submission_path} for user {self.user.username}")
         else:
-            logger.info(f"Discovered {len(self.files)} processable files for student {self.student.id}")
+            logger.info(f"Discovered {len(self.files)} processable files for user {self.user.username}")
 
     def _extract_zip(self, zip_file_path: Path) -> None:
         """Extracts a zip file and then deletes it."""
@@ -76,5 +83,15 @@ class Submission:
             
         return True
 
+    def get_user_info(self) -> dict:
+        """Get user information as a dictionary for compatibility."""
+        return {
+            'id': self.user.username,  # Use username as ID for compatibility
+            'name': self.user.username,  # We might not have full name, use username
+            'email': self.user.email,
+            'role': self.user.role,
+            'database_id': self.user.id  # Include database ID
+        }
+
     def __repr__(self) -> str:
-        return f"Submission(student={self.student.name}, path='{self.submission_path}')" 
+        return f"Submission(user={self.user.username}, path='{self.submission_path}', db_id={self.submission_id})" 
