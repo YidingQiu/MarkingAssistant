@@ -6,7 +6,7 @@ from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
 
 from core.api import user_api, course_api, task_api, solution_api, auth_api
-from core.api import rubric_config_api
+from core.api import rubric_config_api, celery_test_api
 from core.auth.auth_handler import authenticate_user, create_access_token, get_current_user
 from core.configs.database import init_db, get_db
 from core.schemas.token import Token
@@ -38,6 +38,7 @@ app.include_router(course_api.router)
 app.include_router(task_api.router)
 app.include_router(solution_api.router)
 app.include_router(auth_api.router)
+app.include_router(celery_test_api.router)
 
 @app.get("/test", response_model=UserResponse)
 def read_users_me(current_user=Depends(get_current_user)):
