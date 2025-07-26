@@ -13,12 +13,13 @@ router = APIRouter(prefix="/solutions", tags=["solutions"])
 
 
 @router.get("/by_task/{task_id}", response_model=List[TaskSolution])
-def list_solutions_by_task(task_id: int, db: Session = Depends(get_db)):
+def list_solutions_by_task(task_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return task_solution_service.list_by_task(db, task_id)
 
 
 @router.get("/{solution_id}", response_model=Optional[TaskSolution])
-def get_solution_by_id(solution_id: int, include_files: bool = Query(False), db: Session = Depends(get_db)):
+def get_solution_by_id(solution_id: int, include_files: bool = Query(False), db: Session = Depends(get_db),
+                       current_user=Depends(get_current_user)):
     solution = task_solution_service.get_by_id(db, solution_id, include_files)
     if not solution:
         raise HTTPException(status_code=404, detail="Solution not found")
@@ -27,7 +28,7 @@ def get_solution_by_id(solution_id: int, include_files: bool = Query(False), db:
 
 @router.get("/by_user_task", response_model=Optional[TaskSolution])
 def get_solution_by_user_task(user_id: int = Query(...), task_id: int = Query(...), include_files: bool = Query(False),
-                              db: Session = Depends(get_db)):
+                              db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     solution = task_solution_service.get_by_userid_taskid(db, user_id, task_id, include_files)
     if not solution:
         raise HTTPException(status_code=404, detail="Solution not found")
@@ -39,7 +40,8 @@ def create_solution(
         user_id: Optional[int] = Body(None),
         task_id: int = Body(...),
         file_name: str = Body(...),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """
     user_id: None if bulk submitting solution
@@ -65,7 +67,8 @@ def update_solution(
         solution_id: int,
         score: Optional[float] = Body(...),
         result: Optional[Dict[str, Any]] = None,
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     solution = task_solution_service.update(
         db=db,

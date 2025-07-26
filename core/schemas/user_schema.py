@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from core.models import UserRole, User
+from core.models.user import LoginType
 
 
 class UserCreateRequest(BaseModel):
@@ -10,6 +11,7 @@ class UserCreateRequest(BaseModel):
     email: str
     password: str
     role: UserRole = UserRole.student
+    login_type: LoginType = LoginType.userpass
 
 
 class UserResponse(BaseModel):
