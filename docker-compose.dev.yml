@@ -49,10 +49,67 @@ services:
     networks:
       - dev-network
 
+  # Redis service for Celery broker
+  redis:
+    image: redis:7-alpine
+    container_name: redis_dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - dev-network
+
+  # Celery worker for default tasks (optional for development)
+  # celery-worker-default:
+  #   build: .
+  #   container_name: celery_worker_dev
+  #   command: celery -A core.celery.app worker --loglevel=info --queues=default --concurrency=2 --hostname=worker-default@%h
+  #   volumes:
+  #     - .:/app
+  #     - /app/temp  # Temporary processing directory
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #     - PYTHONPATH=/app
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   networks:
+  #     - dev-network
+
+  # Flower monitoring (optional)
+  # flower:
+  #   build: .
+  #   container_name: flower_dev
+  #   command: celery -A core.celery.app flower --port=5555 --broker=redis://redis:6379/0
+  #   ports:
+  #     - "5555:5555"
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   networks:
+  #     - dev-network
+
 volumes:
   postgres_data:
     driver: local
   minio_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:

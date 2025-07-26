@@ -18,8 +18,14 @@ pyOpenSSL==25.0.0
 pytest==8.2.0
 python-dotenv==1.1.0
 PyYAML==6.0.2
-redis==5.0.8
+redis>=4.5.2,<5.0.0
 Sphinx==8.2.3
+# Celery and related packages
+celery[redis]==5.3.4
+flower==2.0.1
+kombu==5.3.4
+billiard==4.2.0
+vine==5.1.0
 thread==2.0.5
 urllib3_secure_extra==0.1.0
 fastapi[standard]==0.115.12
