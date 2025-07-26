@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     # Optional development settings
     DEBUG: bool = True
     
+    # Celery Configuration (optional)
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_WORKER_LOG_LEVEL: str = "INFO"
+
+    # Redis Configuration (optional)
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: str = "6379"
+    REDIS_DB: str = "0"
+    
     # Database read-only user (optional for development)
     PG_USER_READ: str = "readonly_user"
     PG_PASSWORD_READ: str = "readonly_pass"
