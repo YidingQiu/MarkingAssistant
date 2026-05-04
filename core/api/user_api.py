@@ -2,7 +2,9 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
-from core.schemas.user_schema import UserCreateRequest, UserResponse
+
+from core.auth.auth_handler import get_current_user
+from core.schemas.user_schema import UserCreateRequest, UserResponse, UserSetupRequest
 from core.services import user_service
 from core.configs.database import get_db
 
@@ -33,3 +35,7 @@ def get_user_by_username(username: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+@router.post("/setup", response_model=bool)
+def setup_user(req: UserSetupRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    user_service.setup_user(current_user, req, db)
+    return True

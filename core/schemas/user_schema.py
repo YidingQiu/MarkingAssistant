@@ -18,8 +18,15 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
-    role: UserRole
+    role: Optional[UserRole]
 
     @staticmethod
     def from_user(user: User | None) -> Optional['UserResponse']:
         return UserResponse.model_validate(user.model_dump())
+
+class UserSetupRequest(BaseModel):
+    role: UserRole
+    course_name: str
+    course_short_name: str
+    course_faculty: str
+    notify_updates: bool

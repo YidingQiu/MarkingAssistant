@@ -5,6 +5,7 @@ from core.auth.auth_handler import authenticate_user, create_access_token, creat
 from core.auth.google_auth_handler import authenticate_google_user
 from core.configs.database import get_db
 from core.schemas.token import Token
+from core.services.user_service import get_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -24,14 +25,21 @@ def login(username: str = Body(...), password: str = Body(...), session: Session
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(refresh_token: str = Body(...)):
+def refresh_token(refresh_token: str = Body(...), db: Session = Depends(get_db)):
     payload = verify_refresh_token(refresh_token)
+
+    # After users setup their role, reset access_token with new role
+    if (payload["role"] == None):
+        user = get_user(payload["id"], db)
+        payload["role"] = user.role
+
     new_access_token = create_access_token(payload)
     return {
         "access_token": new_access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
 
 @router.post("/google", response_model=Token)
 async def google_login(id_token: str = Body(), db: Session = Depends(get_db)):

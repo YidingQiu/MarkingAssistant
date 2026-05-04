@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Optional
+
 from sqlmodel import Field, SQLModel, Relationship
 
 class UserRole(str, Enum):
@@ -17,7 +19,8 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True)
     email: str = Field(unique=True)
     password: str = Field(exclude=True)
-    role: UserRole = Field(default=UserRole.student)  # student, tutor
+    role: Optional[UserRole]  # student, tutor
     login_type: LoginType
+    notify_updates: Optional[bool] = Field(default=True)
 
     user_courses: list['UserCourse'] = Relationship(back_populates="user")
